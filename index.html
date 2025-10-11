@@ -930,83 +930,88 @@
     let currentReportDistt = null;
     let cityToLayers = {}; // Track layers per city
 
-    fetch('data/Industry_points.geojson')
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('File not found or server error: ' + response.statusText);
-        }
-        return response.json();
-      })
-      .then(data => {
-        const format = new ol.format.GeoJSON();
-        const features = format.readFeatures(data, {
-          featureProjection: 'EPSG:3857',
-          dataProjection: 'EPSG:4326'
-        });
-        console.log('Loaded Faridabad features:', features.length);
-        if (features.length > 0) {
-          // Log properties of first feature to check field names
-          console.log('Feature properties keys:', Object.keys(features[0].getProperties()));
-          console.log('First feature UNIT CATEG or similar:', features[0].get('UNIT CATEG') || features[0].get('UNIT CATeg') || features[0].get('UNIT CATEGORY'));
-          console.log('First feature Zone:', features[0].get('Zone'));
-        }
-        faridabadFeatures = features;
-        let total = features.length;
-        let conforming = 0;
-        let nonConforming = 0;
-        let zones = new Set();
-        features.forEach(f => {
-          const zone = f.get('Zone');
-          const lowerZone = zone ? zone.toString().toLowerCase() : '';
-          zones.add(zone ? zone.toString() : 'null');
-          // Improved matching for non-conforming zones using regex for flexibility (handles "non-conforming", "non conforming", etc.)
-          const isNonConformingZone = zone ? /non[- ]conforming/i.test(zone.toString()) : false;
-          if (isNonConformingZone) {
-            nonConforming++;
-          } else {
-            conforming++;
-          }
-          let unitCateg = f.get('UNIT CATEG') || f.get('UNIT CATeg') || f.get('UNIT CATEGORY');
-          let cat;
-          if (unitCateg) {
-            const lower = unitCateg.toString().toLowerCase();
-            if (lower.includes('red')) cat = 'red';
-            else if (lower.includes('green')) cat = 'green';
-            else if (lower.includes('orange')) cat = 'orange';
-            else if (lower.includes('white')) cat = 'white';
-          }
-          if (cat) {
-            const cloned = f.clone();
-            const pointColor = cat === 'white' ? '#f0f0f0' : cat;
-            cloned.setStyle(new ol.style.Style({
-              image: new ol.style.Circle({
-                radius: 4,
-                fill: new ol.style.Fill({color: pointColor}),
-                stroke: new ol.style.Stroke({color: 'black', width: 2})
-              })
-            }));
-            const p = cloned.getProperties();
-            const cname = p['Company Na'] || p['company na'] || p['COMPANY NA'] || p['Company_Name'] || p['Company Name'] || p['Company'] || p['NAME'] || p.name || p['Company_na'] || '';
-            cloned.set('searchName', cname ? cname.toString().trim() : '');
-            cloned.set('category', cat);
-            faridabadGrouped[cat].push(cloned);
-          }
-        });
-        console.log('Unique Zone values:', Array.from(zones));
-        console.log('Faridabad stats - Total:', total, 'Conforming:', conforming, 'Non-Conforming:', nonConforming);
-
-        // Hardcoded stats as per requirement
-        document.getElementById('faridabad-total').textContent = 21460;
-        document.getElementById('faridabad-conforming').textContent = 5991;
-        document.getElementById('faridabad-nonconforming').textContent = 15469;
-
-        faridabadLoaded = true;
-        console.log('Faridabad grouped:', faridabadGrouped);
-      })
-      .catch(err => {
-        console.error('Error preloading Faridabad data:', err);
-        faridabadError = true;
+    Promise.all([
+      fetch('data/conforming.geojson'),
+      fetch('data/non conforming.geojson')
+    ]).then(([response1, response2]) => {
+      if (!response1.ok || !response2.ok) {
+        throw new Error('File not found or server error: ' + (response1.statusText || response2.statusText));
+      }
+      return Promise.all([response1.json(), response2.json()]);
+    }).then(([data1, data2]) => {
+      const format = new ol.format.GeoJSON();
+      const features1 = format.readFeatures(data1, {
+        featureProjection: 'EPSG:3857',
+        dataProjection: 'EPSG:4326'
       });
+      const features2 = format.readFeatures(data2, {
+        featureProjection: 'EPSG:3857',
+        dataProjection: 'EPSG:4326'
+      });
+      const features = [...features1, ...features2];
+      console.log('Loaded Faridabad features:', features.length);
+      if (features.length > 0) {
+        // Log properties of first feature to check field names
+        console.log('Feature properties keys:', Object.keys(features[0].getProperties()));
+        console.log('First feature UNIT CATEG or similar:', features[0].get('UNIT CATEG') || features[0].get('UNIT CATeg') || features[0].get('UNIT CATEGORY'));
+        console.log('First feature Zone:', features[0].get('Zone'));
+      }
+      faridabadFeatures = features;
+      let total = features.length;
+      let conforming = 0;
+      let nonConforming = 0;
+      let zones = new Set();
+      features.forEach(f => {
+        const zone = f.get('Zone');
+        const lowerZone = zone ? zone.toString().toLowerCase() : '';
+        zones.add(zone ? zone.toString() : 'null');
+        // Improved matching for non-conforming zones using regex for flexibility (handles "non-conforming", "non conforming", etc.)
+        const isNonConformingZone = zone ? /non[- ]conforming/i.test(zone.toString()) : false;
+        if (isNonConformingZone) {
+          nonConforming++;
+        } else {
+          conforming++;
+        }
+        let unitCateg = f.get('UNIT CATEG') || f.get('UNIT CATeg') || f.get('UNIT CATEGORY');
+        let cat;
+        if (unitCateg) {
+          const lower = unitCateg.toString().toLowerCase();
+          if (lower.includes('red')) cat = 'red';
+          else if (lower.includes('green')) cat = 'green';
+          else if (lower.includes('orange')) cat = 'orange';
+          else if (lower.includes('white')) cat = 'white';
+        }
+        if (cat) {
+          const cloned = f.clone();
+          const pointColor = cat === 'white' ? '#f0f0f0' : cat;
+          cloned.setStyle(new ol.style.Style({
+            image: new ol.style.Circle({
+              radius: 4,
+              fill: new ol.style.Fill({color: pointColor}),
+              stroke: new ol.style.Stroke({color: 'black', width: 2})
+            })
+          }));
+          const p = cloned.getProperties();
+          const cname = p['Company Na'] || p['company na'] || p['COMPANY NA'] || p['Company_Name'] || p['Company Name'] || p['Company'] || p['NAME'] || p.name || p['Company_na'] || '';
+          cloned.set('searchName', cname ? cname.toString().trim() : '');
+          cloned.set('category', cat);
+          faridabadGrouped[cat].push(cloned);
+        }
+      });
+      console.log('Unique Zone values:', Array.from(zones));
+      console.log('Faridabad stats - Total:', total, 'Conforming:', conforming, 'Non-Conforming:', nonConforming);
+
+      // Hardcoded stats as per requirement
+      document.getElementById('faridabad-total').textContent = 21460;
+      document.getElementById('faridabad-conforming').textContent = 5991;
+      document.getElementById('faridabad-nonconforming').textContent = 15469;
+
+      faridabadLoaded = true;
+      console.log('Faridabad grouped:', faridabadGrouped);
+    }).catch(err => {
+      console.error('Error preloading Faridabad data:', err);
+      faridabadError = true;
+    });
 
     // Preload Rohtak data
     fetch('data/Rohtak_points.geojson')
@@ -1129,8 +1134,8 @@
 
         // Hardcoded stats as per requirement (update if needed)
         document.getElementById('ynr-total').textContent = total;
-        document.getElementById('ynr-conforming').textContent = conforming;
-        document.getElementById('ynr-nonconforming').textContent = nonConforming;
+        document.getElementById('ynr-conforming').textContent = 1413;
+        document.getElementById('ynr-nonconforming').textContent = 3329;
 
         ynrLoaded = true;
         console.log('Yamunanagar grouped:', ynrGrouped);
@@ -3501,7 +3506,7 @@ map.on('singleclick', function (evt) {
       reportsContent.innerHTML = '';
 
       // Add downloads for Faridabad
-      if (distt.includes('Faridabad')) {
+     /* if (distt.includes('Faridabad')) {
         const downloadsDiv = document.createElement('div');
         downloadsDiv.innerHTML = `
           <h4 style="color: #1e3a8a; margin-bottom: 12px;">Available Reports</h4>
@@ -3528,7 +3533,7 @@ map.on('singleclick', function (evt) {
       }
 
       // Add downloads for Panipat
-      if (distt.includes('Panipat')) {
+     /* if (distt.includes('Panipat')) {
         const downloadsDiv = document.createElement('div');
         downloadsDiv.innerHTML = `
           <h4 style="color: #1e3a8a; margin-bottom: 12px;">Available Reports</h4>
@@ -3540,7 +3545,7 @@ map.on('singleclick', function (evt) {
       }
 
       // Add downloads for Rohtak
-      if (distt.includes('Rohtak')) {
+     /* if (distt.includes('Rohtak')) {
         const downloadsDiv = document.createElement('div');
         downloadsDiv.innerHTML = `
           <h4 style="color: #1e3a8a; margin-bottom: 12px;">Available Reports</h4>
@@ -3549,7 +3554,7 @@ map.on('singleclick', function (evt) {
           </a>
         `;
         reportsContent.appendChild(downloadsDiv);
-      }
+      }*/
 
       // Remove existing chart window
       const existingChartWindow = document.getElementById('chartWindow');
