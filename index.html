@@ -318,7 +318,7 @@
   /* Legend Toggle Button */
   .legend-toggle {
     position: absolute;
-    top: 20px;
+    bottom: 20px;
     right: 20px;
     background: #1e3a8a;
     color: white;
@@ -779,7 +779,96 @@
 
 </head>
 <body>
+
+  <script>
+  // Temporarily set default logged-in state for demo purposes (remove in production)
+  if (!localStorage.getItem("loggedIn")) {
+    localStorage.setItem("loggedIn", "true");
+    localStorage.setItem("role", "all");
+  }
+
+  const loggedIn = localStorage.getItem("loggedIn");
+  const role = localStorage.getItem("role");
+
+  // Comment out redirect for demo (uncomment in production)
+  // if (!loggedIn) {
+  //   window.location.href = "login.html";
+  // }
+
+  // Hide content for district users
+  document.addEventListener("DOMContentLoaded", () => {
+    if (role !== "all") {
+      const allowed = role; // e.g. 'faridabad'
+      // Hide other districts' sections
+      const statsSections = document.querySelectorAll(".stats-section h4");
+      statsSections.forEach(section => {
+        if (!section.textContent.toLowerCase().includes(allowed)) {
+          section.closest(".stats-section").style.display = "none";
+        }
+      });
+      // You can also disable query builder options, etc.
+      const districtSelect = document.getElementById("districtSelect");
+      if (districtSelect) {
+        districtSelect.value = allowed;
+        for (let opt of districtSelect.options) {
+          if (opt.value !== allowed) opt.disabled = true;
+        }
+      }
+    }
+  });
+</script>
+
   <div class="header">Haryana Industrial Portal</div>
+
+  <button id="logoutBtn" style="
+  position:absolute; right:20px; top:12px; z-index:1001;
+  background:#ef4444; color:white; border:none;
+  padding:6px 12px; border-radius:6px;
+  cursor:pointer; font-size:14px;
+"><i class="fas fa-sign-out-alt"></i> Logout</button>
+
+<!-- Logout Modal -->
+<div id="logoutModal" style="
+  display:none; position:fixed; inset:0;
+  background:rgba(0,0,0,0.4); z-index:2000;
+  align-items:center; justify-content:center;
+">
+  <div style="
+    background:white; padding:20px 30px;
+    border-radius:12px; text-align:center;
+    box-shadow:0 4px 12px rgba(0,0,0,0.3);
+    width:300px;
+  ">
+    <h3 style="color:#1e3a8a; margin-bottom:10px;">Confirm Logout</h3>
+    <p style="color:#555; font-size:14px;">Are you sure you want to log out?</p>
+    <div style="margin-top:15px;">
+      <button id="confirmLogout" style="
+        background:#1e3a8a; color:white; border:none;
+        padding:8px 16px; border-radius:6px; cursor:pointer;
+      ">Yes</button>
+      <button id="cancelLogout" style="
+        background:#ccc; border:none;
+        padding:8px 16px; border-radius:6px; cursor:pointer;
+      ">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.getElementById("logoutBtn").addEventListener("click", () => {
+    document.getElementById("logoutModal").style.display = "flex";
+  });
+  document.getElementById("cancelLogout").addEventListener("click", () => {
+    document.getElementById("logoutModal").style.display = "none";
+  });
+  document.getElementById("confirmLogout").addEventListener("click", () => {
+    localStorage.removeItem("loggedIn");
+    localStorage.removeItem("role");
+    localStorage.removeItem("username");
+    window.location.href = "login.html";
+  });
+</script>
+
 
   <div class="container" id="layout">
     <!-- Sidebar Panel -->
@@ -1301,9 +1390,15 @@
       {name: "Bhiwani", coords: [76.1396, 28.7935]}
     ];
 
-    // All suggestions
+    // Filter places based on role
+    let allowedPlaces = localPlaces;
+    if (role !== "all") {
+      allowedPlaces = localPlaces.filter(p => p.name.toLowerCase().includes(role));
+    }
+
+    // All suggestions based on allowed places
     const allSuggestions = [
-      ...localPlaces.map(p => ({type: 'place', name: p.name, data: p})),
+      ...allowedPlaces.map(p => ({type: 'place', name: p.name, data: p})),
       {type: 'layer', name: 'Google Maps'},
       {type: 'layer', name: 'Google Satellite'},
       {type: 'layer', name: 'OpenStreetMap'},
@@ -2597,6 +2692,11 @@ map.on('singleclick', function (evt) {
     // Function to create folder and layers for a city
     function createCityFolder(cityName) {
       const lowerCity = cityName.toLowerCase();
+      // Role-based access check
+      if (role !== "all" && lowerCity !== role) {
+        console.log('Access denied for this district');
+        return;
+      }
       if (createdFolders.has(lowerCity)) return;
       createdFolders.add(lowerCity);
 
@@ -3846,6 +3946,11 @@ map.on('singleclick', function (evt) {
 
         // Check if it's a specific city and create folder
         const lowerName = sug.name.toLowerCase();
+        // Role-based access check
+        if (role !== "all" && lowerName !== role) {
+          console.log('Access denied for this district');
+          return;
+        }
         if (['rohtak', 'faridabad', 'panipat', 'yamunanagar'].includes(lowerName)) {
           createCityFolder(sug.name);
           // Switch to layers tab
@@ -3882,13 +3987,18 @@ map.on('singleclick', function (evt) {
         const query = this.value.trim();
         if (query) {
           // First, search local data
-          const localMatch = localPlaces.find(p => p.name.toLowerCase().includes(query.toLowerCase()));
+          const localMatch = allowedPlaces.find(p => p.name.toLowerCase().includes(query.toLowerCase()));
           if (localMatch) {
             map.getView().setCenter(ol.proj.fromLonLat(localMatch.coords));
             map.getView().setZoom(12);
 
             // Check if it's a specific city and create folder
             const lowerName = localMatch.name.toLowerCase();
+            // Role-based access check
+            if (role !== "all" && lowerName !== role) {
+              console.log('Access denied for this district');
+              return;
+            }
             if (['rohtak', 'faridabad', 'panipat', 'yamunanagar'].includes(lowerName)) {
               createCityFolder(localMatch.name);
               // Switch to layers tab

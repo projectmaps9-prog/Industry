@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login | Haryana Industrial Portal</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --secondary: #3b82f6;
+      --light-bg: #f4f6f9;
+      --text-dark: #1e293b;
+      --border-radius: 12px;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .background-circles {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      z-index: 0;
+    }
+
+    .background-circles span {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 50%;
+      animation: float 8s infinite ease-in-out;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(0) scale(1); opacity: 1; }
+      50% { transform: translateY(-40px) scale(1.2); opacity: 0.6; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    .login-box {
+      position: relative;
+      z-index: 1;
+      background: white;
+      padding: 40px 30px;
+      border-radius: var(--border-radius);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+      width: 340px;
+      text-align: center;
+      animation: fadeIn 1s ease;
+    }
+
+    .login-box h2 {
+      margin-bottom: 10px;
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .login-box p {
+      color: #64748b;
+      font-size: 14px;
+      margin-bottom: 25px;
+    }
+
+    .input-group {
+      margin-bottom: 16px;
+      text-align: left;
+    }
+
+    .input-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 5px;
+      color: var(--text-dark);
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #ccc;
+      border-radius: var(--border-radius);
+      font-size: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .input-group input:focus {
+      outline: none;
+      border-color: var(--secondary);
+      box-shadow: 0 0 5px rgba(59,130,246,0.5);
+    }
+
+    .login-btn {
+      width: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      color: white;
+      border: none;
+      padding: 10px 0;
+      border-radius: var(--border-radius);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 10px rgba(59,130,246,0.3);
+    }
+
+    .login-btn:hover {
+      transform: scale(1.03);
+      background: linear-gradient(90deg, var(--secondary), var(--primary));
+    }
+
+    .footer-text {
+      margin-top: 20px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .portal-logo {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--secondary), var(--primary));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 15px auto;
+      color: white;
+      font-size: 26px;
+      box-shadow: 0 4px 12px rgba(30,58,138,0.3);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="background-circles">
+    <span style="top:10%; left:20%; animation-delay:0s;"></span>
+    <span style="top:30%; left:80%; animation-delay:2s;"></span>
+    <span style="top:60%; left:40%; animation-delay:4s;"></span>
+    <span style="top:80%; left:10%; animation-delay:1s;"></span>
+    <span style="top:50%; left:70%; animation-delay:3s;"></span>
+  </div>
+
+  <div class="login-box">
+    <div class="portal-logo"><i class="fas fa-industry"></i></div>
+    <h2>Haryana Industrial Portal</h2>
+    <p>Sign in to access your district dashboard</p>
+
+    <form onsubmit="return loginUser(event)">
+      <div class="input-group">
+        <label for="username"><i class="fas fa-user"></i> Username</label>
+        <input type="text" id="username" placeholder="Enter username" required>
+      </div>
+      <div class="input-group">
+        <label for="password"><i class="fas fa-lock"></i> Password</label>
+        <input type="password" id="password" placeholder="Enter password" required>
+      </div>
+      <button class="login-btn" type="submit">Login</button>
+    </form>
+
+    <div class="footer-text">© 2025 Haryana GIS Portal</div>
+  </div>
+
+  <script>
+    const users = {
+      admin: { password: "1234", access: "all" },
+      faridabad: { password: "fd123", access: "faridabad" },
+      panipat: { password: "pp123", access: "panipat" },
+      yamunanagar: { password: "ynr123", access: "yamunanagar" },
+      rohtak: { password: "rt123", access: "rohtak" }
+    };
+
+    function loginUser(event) {
+      event.preventDefault();
+      const user = document.getElementById('username').value.trim().toLowerCase();
+      const pass = document.getElementById('password').value.trim();
+
+      if (users[user] && users[user].password === pass) {
+        localStorage.setItem("loggedIn", "true");
+        localStorage.setItem("role", users[user].access);
+        localStorage.setItem("username", user);
+        window.location.href = "index.html";
+      } else {
+        alert("Invalid username or password. Please try again.");
+      }
+    }
+
+    if (localStorage.getItem("loggedIn") === "true") {
+      window.location.href = "index.html";
+    }
+  </script>
+</body>
+</html>
