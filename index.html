@@ -15,13 +15,9 @@
       --radius: 14px;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      margin: 0;
-      padding: 0;
       font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(135deg, var(--primary), var(--secondary));
       height: 100vh;
@@ -32,7 +28,7 @@
       overflow: hidden;
     }
 
-    /* Subtle Haryana Map watermark */
+    /* Haryana Map Watermark */
     body::before {
       content: "";
       position: absolute;
@@ -64,6 +60,19 @@
     @keyframes float {
       0%, 100% { transform: translateY(0) scale(1); opacity: 0.7; }
       50% { transform: translateY(-30px) scale(1.2); opacity: 0.4; }
+    }
+
+    /* Container for login + collage */
+    .container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 50px;
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 1200px;
+      padding: 20px;
     }
 
     /* Login box */
@@ -134,10 +143,7 @@
       transition: all 0.3s ease;
     }
 
-    .input-group input::placeholder {
-      color: #d1d5db;
-    }
-
+    .input-group input::placeholder { color: #d1d5db; }
     .input-group input:focus {
       outline: none;
       border-color: var(--accent);
@@ -176,59 +182,57 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* Responsive adjustments */
-    @media (max-width: 768px) {
-      h2 {
-        font-size: 20px;
-      }
+    /* Industrial collage styles */
+    .image-collage {
+      position: relative;
+      width: 450px;
+      height: 450px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      perspective: 1000px;
+    }
 
-      p {
-        font-size: 13px;
-      }
+    .image-collage img {
+      width: 210px;
+      height: 210px;
+      object-fit: cover;
+      border-radius: var(--radius);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      transform: rotate(0deg) scale(1);
+      animation: collageFloat 8s infinite ease-in-out alternate;
+      position: relative;
+    }
 
-      .portal-logo {
-        width: 70px;
-        height: 70px;
-        font-size: 28px;
-      }
+    .image-collage img:nth-child(1) { animation-delay: 0s; transform: rotate(-3deg); }
+    .image-collage img:nth-child(2) { animation-delay: 2s; transform: rotate(2deg); }
+    .image-collage img:nth-child(3) { animation-delay: 4s; transform: rotate(-2deg); }
+    .image-collage img:nth-child(4) { animation-delay: 6s; transform: rotate(3deg); }
 
-      .login-box {
-        width: 90%;
-        padding: 30px 20px;
-      }
+    @keyframes collageFloat {
+      0% { transform: translateY(0px) rotate(var(--rotate)) scale(1); opacity: 0.85; }
+      50% { transform: translateY(-20px) rotate(var(--rotate)) scale(1.05); opacity: 0.65; }
+      100% { transform: translateY(0px) rotate(var(--rotate)) scale(1); opacity: 0.85; }
+    }
 
-      .input-group input {
-        font-size: 15px;
-        padding: 12px;
-      }
+    .image-collage img:hover {
+      transform: scale(1.1) rotate(0deg);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+      z-index: 10;
+    }
 
-      .login-btn {
-        font-size: 15px;
-        padding: 14px 0;
-      }
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .container { flex-direction: column; gap: 40px; }
+      .image-collage { width: 80%; height: auto; justify-content: center; }
+      .image-collage img { width: 45%; height: 200px; }
     }
 
     @media (max-width: 480px) {
-      body::before {
-        background-size: 80%;
-      }
-
-      h2 {
-        font-size: 18px;
-      }
-
-      p {
-        font-size: 12px;
-      }
-
-      .login-box {
-        padding: 25px 18px;
-      }
-
-      .portal-logo {
-        width: 65px;
-        height: 65px;
-      }
+      .image-collage img { width: 90%; height: 150px; }
+      .login-box { width: 90%; padding: 25px 18px; }
+      h2 { font-size: 18px; }
+      p { font-size: 12px; }
     }
   </style>
 </head>
@@ -237,24 +241,33 @@
     <span></span><span></span><span></span><span></span>
   </div>
 
-  <div class="login-box">
-    <div class="portal-logo"><i class="fas fa-industry"></i></div>
-    <h2>Haryana Industrial Survey Portal ( For Review only)</h2>
-    <p>Access your district industrial survey dashboard</p>
+  <div class="container">
+    <div class="login-box">
+      <div class="portal-logo"><i class="fas fa-industry"></i></div>
+      <h2>Haryana Industrial Survey Portal (For Review only)</h2>
+      <p>Access your district industrial survey dashboard</p>
 
-    <form onsubmit="return loginUser(event)">
-      <div class="input-group">
-        <label for="username"><i class="fas fa-user"></i> Username</label>
-        <input type="text" id="username" placeholder="Enter username" required>
-      </div>
-      <div class="input-group">
-        <label for="password"><i class="fas fa-lock"></i> Password</label>
-        <input type="password" id="password" placeholder="Enter password" required>
-      </div>
-      <button class="login-btn" type="submit">Login</button>
-    </form>
+      <form onsubmit="return loginUser(event)">
+        <div class="input-group">
+          <label for="username"><i class="fas fa-user"></i> Username</label>
+          <input type="text" id="username" placeholder="Enter username" required>
+        </div>
+        <div class="input-group">
+          <label for="password"><i class="fas fa-lock"></i> Password</label>
+          <input type="password" id="password" placeholder="Enter password" required>
+        </div>
+        <button class="login-btn" type="submit">Login</button>
+      </form>
 
-    <div class="footer-text">© 2025 Haryana Industrial Survey Portal</div>
+      <div class="footer-text">© 2025 Haryana Industrial Survey Portal</div>
+    </div>
+
+    <div class="image-collage">
+      <img src="data/1.jpg" alt="Industrial 1">
+      <img src="data/3.jpg" alt="Industrial 3">
+      <img src="data/4.jpg" alt="Industrial 4">
+      <img src="data/5.jpg" alt="Industrial 5">
+    </div>
   </div>
 
   <script>
@@ -287,4 +300,3 @@
   </script>
 </body>
 </html>
-
