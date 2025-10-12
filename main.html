@@ -1,0 +1,4059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Web GIS Portal</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f4f6f9;
+  }
+
+  /* Header Bar */
+  .header {
+    background: linear-gradient(90deg, #1e3a8a, #3b82f6);
+    color: white;
+    padding: 15px 20px;
+    font-size: 22px;
+    font-weight: bold;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    position: relative;
+    z-index: 1000;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+  }
+
+  /* Layout: Sidebar + Map */
+  .container {
+    display: flex;
+    height: calc(100% - 60px); /* header height */
+    transition: all 0.3s ease;
+    position: relative;
+  }
+
+  /* Sidebar Panel */
+  .sidebar {
+    width: 250px;
+    background: #ffffff;
+    border-right: 1px solid #ddd;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    padding-top: 60px;
+    border-top-right-radius: 12px;
+  }
+
+  /* Tab Navigation */
+  .tab-nav {
+    display: flex;
+    background: #f8fafc;
+    border-bottom: 1px solid #ddd;
+  }
+  .tab-nav button {
+    flex: 1;
+    padding: 12px 8px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 2px solid transparent;
+  }
+  .tab-nav button.active {
+    color: #1e3a8a;
+    border-bottom-color: #1e3a8a;
+    background: #ffffff;
+  }
+  .tab-nav button:hover {
+    color: #1e3a8a;
+    background: #e2e8f0;
+  }
+
+  /* Tab Content */
+  .tab-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+  .tab-pane {
+    display: none;
+  }
+  .tab-pane.active {
+    display: block;
+  }
+
+  /* Layers Tab */
+  .base-map-select {
+    width: 100%;
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    margin-bottom: 16px;
+  }
+
+  .layer-list {
+    padding: 0;
+  }
+  .layer-list label {
+    display: flex;
+    align-items: center;
+    margin: 8px 0;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 6px;
+    transition: background 0.2s;
+  }
+  .layer-list label:hover {
+    background: #e0e7ff;
+  }
+  .layer-list input[type="checkbox"] {
+    margin-right: 10px;
+    accent-color: #1e3a8a;
+  }
+
+  .total-text {
+    font-weight: 500;
+    color: #1e3a8a;
+    margin: 8px 0;
+    padding: 6px 8px;
+    background: #e0e7ff;
+    border-radius: 6px;
+  }
+
+  .folder {
+    margin-bottom: 16px;
+    padding: 8px;
+    background: #f8fafc;
+    border-radius: 6px;
+    position: relative;
+  }
+  .folder h4 {
+    margin: 0 0 8px 0;
+    color: #1e3a8a;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+  }
+  .folder-close {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 5px;
+    line-height: 1;
+  }
+  .folder-close:hover {
+    color: #1e3a8a;
+  }
+  .fit-btn {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 5px;
+  }
+  .fit-btn:hover {
+    background: #1e3a8a;
+  }
+  .loading-spinner {
+    display: inline-block;
+    margin-right: 8px;
+  }
+
+  .boundary-select {
+    width: 100%;
+    padding: 6px;
+    font-size: 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+
+  .layer-icon {
+    margin-right: 8px;
+    font-size: 14px;
+    width: 16px;
+  }
+
+  .folder-content {
+    display: block;
+  }
+
+  .folder.collapsed .folder-content {
+    display: none;
+  }
+
+  .folder-arrow {
+    margin-right: 8px;
+    color: #1e3a8a;
+    transition: transform 0.3s ease;
+  }
+
+  .folder.collapsed .folder-arrow {
+    transform: rotate(-90deg);
+  }
+
+  /* Statistics Tab */
+  .stats-section {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 6px;
+    border-left: 4px solid #1e3a8a;
+  }
+  .stats-section h4 {
+    margin: 0 0 8px 0;
+    color: #1e3a8a;
+    font-size: 14px;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  .stats-section h4:hover {
+    color: #3b82f6;
+    text-decoration: underline;
+  }
+  .stats-item {
+    display: flex;
+    justify-content: space-between;
+    margin: 4px 0;
+    font-size: 12px;
+  }
+  .stats-item strong {
+    color: #1e3a8a;
+  }
+
+  /* Reports Tab */
+  #reportsChart {
+    max-width: 300px;
+    max-height: 300px;
+    margin: 0 auto;
+  }
+  #chartTypeSelect {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 16px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+  }
+
+  .report-download {
+    display: block;
+    margin: 10px 0;
+    padding: 8px;
+    background: #f8fafc;
+    border-radius: 6px;
+    text-decoration: none;
+    color: #1e3a8a;
+    font-weight: 500;
+    transition: background 0.2s;
+  }
+
+  .report-download:hover {
+    background: #e0e7ff;
+    color: #1e3a8a;
+  }
+
+  .report-download i {
+    margin-right: 8px;
+  }
+
+  /* Map Container */
+  #map {
+    flex: 1;
+    transition: all 0.3s ease;
+  }
+
+  /* Zoom Control */
+  .ol-zoom {
+    top: 50% !important;
+    left: auto !important;
+    right: 20px !important;
+    transform: translateY(-50%);
+    background: rgba(255,255,255,0.9);
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+
+  /* Collapse Button */
+  .toggle-btn {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 6px;
+    transition: all 0.3s;
+    z-index: 1002;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  .toggle-btn:hover {
+    background: #3b82f6;
+    transform: scale(1.05);
+  }
+
+  /* Legend Toggle Button */
+  .legend-toggle {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 6px;
+    transition: all 0.3s;
+    z-index: 1002;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  .legend-toggle:hover {
+    background: #3b82f6;
+    transform: scale(1.05);
+  }
+
+  /* Query Builder Toggle Button */
+  .query-builder-toggle {
+    position: absolute;
+    top: 90px;
+    right: 20px;
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 6px;
+    transition: all 0.3s;
+    z-index: 1002;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  .query-builder-toggle:hover {
+    background: #3b82f6;
+    transform: scale(1.05);
+  }
+
+  /* Collapsed Sidebar */
+  .collapsed .sidebar {
+    width: 0;
+    padding: 60px 0 0 0;
+    overflow: hidden;
+  }
+
+/* Search Bar aligned with sidebar */
+.search-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 210px; /* same as sidebar width */
+  padding: 12px;
+  background: white;
+  border-right: 1px solid #ddd;
+  box-shadow: 2px 0 12px rgba(0,0,0,0.1);
+  z-index: 1001;
+  transition: left 0.3s ease, width 0.3s ease;
+  border-top-right-radius: 12px;
+}
+
+/* When sidebar is collapsed, keep search bar visible */
+.collapsed .search-bar {
+  width: 250px; /* same width as sidebar */
+}
+
+.search-container {
+  display: flex;
+  position: relative;
+  align-items: center;
+}
+
+.search-bar input {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px 0 0 6px;
+  transition: all 0.2s;
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: #1e3a8a;
+  box-shadow: 0 0 6px rgba(30,58,138,0.5);
+}
+
+.search-bar button {
+  background: #1e3a8a;
+  color: white;
+  border: none;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  border-radius: 0 6px 6px 0;
+  transition: background 0.2s;
+}
+
+.search-bar button:hover {
+  background: #3b82f6;
+}
+
+.suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ccc;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1002;
+  display: none;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.suggestions ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.suggestions li {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  transition: background 0.2s;
+}
+
+.suggestions li:hover {
+  background: #e0e7ff;
+}
+
+.suggestions li.layer {
+  font-style: italic;
+  color: #666;
+}
+
+.suggestions li.place {
+  font-weight: 500;
+}
+
+  /* Legend Styles */
+  .legend {
+    position: absolute;
+    top: 120px;
+    right: 10px;
+    background: white;
+    padding: 10px;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    z-index: 1001;
+    font-size: 12px;
+    min-width: 150px;
+    display: none;
+    cursor: move;
+  }
+  .legend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .legend h4 {
+    margin: 0;
+    color: #1e3a8a;
+    font-size: 14px;
+    text-align: center;
+    flex: 1;
+  }
+  .legend-close {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    color: #666;
+  }
+  .legend-close:hover {
+    color: #1e3a8a;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+  .legend-item input[type="checkbox"] {
+    margin-right: 5px;
+    accent-color: #1e3a8a;
+  }
+  .legend-swatch {
+    width: 20px;
+    height: 15px;
+    border: 1px solid #ccc;
+    margin-right: 5px;
+  }
+
+  /* Popup Styles */
+  #popup {
+    position: absolute;
+    background: white;
+    padding: 10px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 1003;
+    display: none;
+    max-width: 400px;
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    cursor: move;
+  }
+  #popup-header {
+    position: relative;
+    margin: -10px -10px 10px -10px;
+    padding: 10px;
+    background: linear-gradient(90deg, #1e3a8a, #3b82f6);
+    color: white;
+    border-radius: 6px 6px 0 0;
+    cursor: move;
+  }
+  #popup-header h3 {
+    margin: 0;
+    font-size: 14px;
+  }
+  #popup-close {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: white;
+    z-index: 1004;
+  }
+  #popup-close:hover {
+    color: #1e3a8a;
+  }
+  .popup-content {
+    font-size: 12px;
+  }
+  .popup-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    background: white;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .popup-content th,
+  .popup-content td {
+    padding: 8px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+  }
+  .popup-content th {
+    background: linear-gradient(90deg, #1e3a8a, #3b82f6);
+    color: white;
+    font-weight: bold;
+  }
+  .popup-content tr:nth-child(even) {
+    background: #f8fafc;
+  }
+  .popup-content tr:hover {
+    background: #e0e7ff;
+  }
+  .popup-content strong {
+    color: #1e3a8a;
+  }
+  .toggle-more {
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
+    display: block;
+    width: 100%;
+  }
+  .toggle-more:hover {
+    background: #3b82f6;
+  }
+  .collapsed tr.hidden-row {
+    display: none;
+  }
+
+  /* Chart Window Styles */
+  #chartWindow {
+    position: absolute;
+    background: white;
+    padding: 10px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 1003;
+    display: none;
+    max-width: 400px;
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    cursor: move;
+  }
+  #chart-header {
+    position: relative;
+    margin: -10px -10px 10px -10px;
+    padding: 10px;
+    background: linear-gradient(90deg, #1e3a8a, #3b82f6);
+    color: white;
+    border-radius: 6px 6px 0 0;
+    cursor: move;
+  }
+  #chart-header h3 {
+    margin: 0;
+    font-size: 14px;
+  }
+  #chart-close {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: white;
+    z-index: 1004;
+  }
+  #chart-close:hover {
+    color: #1e3a8a;
+  }
+  #chart-content {
+    font-size: 12px;
+    text-align: center;
+  }
+  #exportPdf {
+    margin-top: 10px;
+    padding: 8px 16px;
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  #exportPdf:hover {
+    background: #3b82f6;
+  }
+
+  /* Query Builder Styles */
+  #queryBuilder {
+    position: absolute;
+    background: white;
+    padding: 10px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 1003;
+    display: none;
+    max-width: 400px;
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    cursor: move;
+  }
+  #query-header {
+    position: relative;
+    margin: -10px -10px 10px -10px;
+    padding: 10px;
+    background: linear-gradient(90deg, #1e3a8a, #3b82f6);
+    color: white;
+    border-radius: 6px 6px 0 0;
+    cursor: move;
+  }
+  #query-header h3 {
+    margin: 0;
+    font-size: 14px;
+  }
+  #query-close {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: white;
+    z-index: 1004;
+  }
+  #query-close:hover {
+    color: #1e3a8a;
+  }
+  #query-content {
+    font-size: 12px;
+  }
+  #districtSelect, #querySearch {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  #searchHistory {
+    margin-bottom: 10px;
+  }
+  #searchHistory h5 {
+    margin: 0 0 5px 0;
+    font-size: 12px;
+    color: #1e3a8a;
+    font-weight: bold;
+  }
+  #searchHistory ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 100px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    background: #f9f9f9;
+  }
+  #searchHistory li {
+    padding: 4px 8px;
+    cursor: pointer;
+    border-bottom: 1px solid #ddd;
+    font-size: 12px;
+    color: #666;
+    transition: background 0.2s;
+  }
+  #searchHistory li:hover {
+    background: #e0e7ff;
+  }
+  #queryResults div {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  #queryResults div:hover {
+    background: #e0e7ff;
+  }
+  #queryResults div.selected {
+    background: #e0e7ff;
+    font-weight: bold;
+  }
+  #resetQuery, #exportResults {
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 10px;
+    margin-top: 10px;
+  }
+  #resetQuery:hover, #exportResults:hover {
+    background: #3b82f6;
+  }
+</style>
+
+</head>
+<body>
+
+  <script>
+  // Temporarily set default logged-in state for demo purposes (remove in production)
+  if (!localStorage.getItem("loggedIn")) {
+    localStorage.setItem("loggedIn", "true");
+    localStorage.setItem("role", "all");
+  }
+
+  const loggedIn = localStorage.getItem("loggedIn");
+  const role = localStorage.getItem("role");
+
+  // Comment out redirect for demo (uncomment in production)
+  // if (!loggedIn) {
+  //   window.location.href = "index.html";
+  // }
+
+  // Hide content for district users
+  document.addEventListener("DOMContentLoaded", () => {
+    if (role !== "all") {
+      const allowed = role; // e.g. 'faridabad'
+      // Hide other districts' sections
+      const statsSections = document.querySelectorAll(".stats-section h4");
+      statsSections.forEach(section => {
+        if (!section.textContent.toLowerCase().includes(allowed)) {
+          section.closest(".stats-section").style.display = "none";
+        }
+      });
+      // You can also disable query builder options, etc.
+      const districtSelect = document.getElementById("districtSelect");
+      if (districtSelect) {
+        districtSelect.value = allowed;
+        for (let opt of districtSelect.options) {
+          if (opt.value !== allowed) opt.disabled = true;
+        }
+      }
+    }
+  });
+</script>
+
+  <div class="header">Haryana Industrial Portal</div>
+
+  <button id="logoutBtn" style="
+  position:absolute; right:20px; top:12px; z-index:1001;
+  background:#ef4444; color:white; border:none;
+  padding:6px 12px; border-radius:6px;
+  cursor:pointer; font-size:14px;
+"><i class="fas fa-sign-out-alt"></i> Logout</button>
+
+<!-- Logout Modal -->
+<div id="logoutModal" style="
+  display:none; position:fixed; inset:0;
+  background:rgba(0,0,0,0.4); z-index:2000;
+  align-items:center; justify-content:center;
+">
+  <div style="
+    background:white; padding:20px 30px;
+    border-radius:12px; text-align:center;
+    box-shadow:0 4px 12px rgba(0,0,0,0.3);
+    width:300px;
+  ">
+    <h3 style="color:#1e3a8a; margin-bottom:10px;">Confirm Logout</h3>
+    <p style="color:#555; font-size:14px;">Are you sure you want to log out?</p>
+    <div style="margin-top:15px;">
+      <button id="confirmLogout" style="
+        background:#1e3a8a; color:white; border:none;
+        padding:8px 16px; border-radius:6px; cursor:pointer;
+      ">Yes</button>
+      <button id="cancelLogout" style="
+        background:#ccc; border:none;
+        padding:8px 16px; border-radius:6px; cursor:pointer;
+      ">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.getElementById("logoutBtn").addEventListener("click", () => {
+    document.getElementById("logoutModal").style.display = "flex";
+  });
+  document.getElementById("cancelLogout").addEventListener("click", () => {
+    document.getElementById("logoutModal").style.display = "none";
+  });
+  document.getElementById("confirmLogout").addEventListener("click", () => {
+    localStorage.removeItem("loggedIn");
+    localStorage.removeItem("role");
+    localStorage.removeItem("username");
+    window.location.href = "index.html";
+  });
+</script>
+
+
+  <div class="container" id="layout">
+    <!-- Sidebar Panel -->
+    <div class="sidebar">
+      <div class="tab-nav">
+        <button class="tab-btn active" data-tab="layers">Layers</button>
+        <button class="tab-btn" data-tab="statistics">Statistics</button>
+        <button class="tab-btn" data-tab="reports" id="reportsTabBtn" style="display: none;">Reports</button>
+      </div>
+      <div class="tab-content">
+        <!-- Layers Tab -->
+        <div id="layers" class="tab-pane active">
+          <h3>Base Map</h3>
+          <select class="base-map-select" id="baseMapSelect">
+            <option value="google">Google Maps</option>
+            <option value="google_sat" selected>Google Satellite</option>
+            <option value="osm">OpenStreetMap</option>
+            <option value="sat">Satellite (ESRI)</option>
+          </select>
+          <div class="layer-list" id="industrialLayers"></div>
+        </div>
+
+        <!-- Statistics Tab -->
+        <div id="statistics" class="tab-pane">
+          <h3>Statistics</h3>
+          <div class="stats-section">
+            <h4>Rohtak Distt</h4>
+            <div class="stats-item"><strong>Total Industries:</strong> <span id="rohtak-total">100</span></div>
+            <div class="stats-item"><strong>Industries in Conforming:</strong> <span id="rohtak-conforming">80</span></div>
+            <div class="stats-item"><strong>Industries in Non-Conforming:</strong> <span id="rohtak-nonconforming">20</span></div>
+          </div>
+          <div class="stats-section">
+            <h4>Yamunanagar Distt</h4>
+            <div class="stats-item"><strong>Total Industries:</strong> <span id="ynr-total">150</span></div>
+            <div class="stats-item"><strong>Industries in Conforming:</strong> <span id="ynr-conforming">120</span></div>
+            <div class="stats-item"><strong>Industries in Non-Conforming:</strong> <span id="ynr-nonconforming">30</span></div>
+          </div>
+          <div class="stats-section" id="faridabad-stats">
+            <h4>Faridabad Distt</h4>
+            <div class="stats-item"><strong>Total Industries:</strong> <span id="faridabad-total">21460</span></div>
+            <div class="stats-item"><strong>Industries in Conforming:</strong> <span id="faridabad-conforming">5991</span></div>
+            <div class="stats-item"><strong>Industries in Non-Conforming:</strong> <span id="faridabad-nonconforming">15469</span></div>
+          </div>
+          <div class="stats-section">
+            <h4>Panipat Distt</h4>
+            <div class="stats-item"><strong>Total Industries:</strong> <span id="panipat-total">120</span></div>
+            <div class="stats-item"><strong>Industries in Conforming:</strong> <span id="panipat-conforming">95</span></div>
+            <div class="stats-item"><strong>Industries in Non-Conforming:</strong> <span id="panipat-nonconforming">25</span></div>
+          </div>
+        </div>
+
+        <!-- Reports Tab -->
+        <div id="reports" class="tab-pane">
+          <h3>Reports</h3>
+          <select id="chartTypeSelect">
+            <option value="pie">Pie Chart</option>
+            <option value="bar">Bar Chart</option>
+          </select>
+          <div id="reports-content">
+            <!-- Dynamic content -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search bar always on top -->
+    <div class="search-bar">
+      <div class="search-container">
+        <input type="text" id="layerSearch" placeholder="Search layers or places...">
+        <button id="searchBtn" type="button"><i class="fas fa-search"></i></button>
+      </div>
+      <div id="suggestions" class="suggestions"></div>
+    </div>
+
+    <!-- Map -->
+    <div id="map"></div>
+
+    <!-- Legend -->
+    <div id="legend" class="legend">
+      <div class="legend-header">
+        <h4>Landuse Legend</h4>
+        <button class="legend-close" onclick="toggleLegend()">&times;</button>
+      </div>
+      <div id="legend-content"></div>
+    </div>
+
+    <!-- Popup -->
+    <div id="popup">
+      <div id="popup-header">
+        <h3>Feature Attributes</h3>
+        <button id="popup-close">&times;</button>
+      </div>
+      <div id="popup-content" class="popup-content"></div>
+    </div>
+
+    <!-- Query Builder -->
+    <div id="queryBuilder">
+      <div id="query-header">
+        <h3>Query Builder</h3>
+        <button id="query-close">&times;</button>
+      </div>
+      <div id="query-content">
+        <select id="districtSelect">
+          <option value="rohtak">Rohtak</option>
+          <option value="yamunanagar">Yamunanagar</option>
+          <option value="faridabad">Faridabad</option>
+          <option value="panipat">Panipat</option>
+        </select>
+        <input type="text" id="querySearch" placeholder="Search by company name, owner name, mobile, address, zone etc...">
+        <div id="searchHistory"></div>
+        <div id="queryResults"></div>
+        <div style="margin-top: 10px;">
+          <button id="resetQuery">Reset</button>
+          <button id="exportResults">Export CSV</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Collapse Button -->
+  <button class="toggle-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i> Layers</button>
+
+  <!-- Legend Toggle Button -->
+  <button class="legend-toggle" onclick="toggleLegend()"><i class="fas fa-list"></i> Legend</button>
+
+  <!-- Query Builder Toggle Button -->
+  <button class="query-builder-toggle" onclick="toggleQueryBuilder()"><i class="fas fa-database"></i> Query Builder</button>
+
+  <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
+  <script>
+    // Preload Faridabad data
+    let faridabadGrouped = {red: [], green: [], orange: [], white: []};
+    let faridabadLoaded = false;
+    let faridabadError = false;
+    let faridabadFeatures = [];
+    let rohtakGrouped = {red: [], green: [], orange: [], white: []};
+    let rohtakLoaded = false;
+    let rohtakError = false;
+    let rohtakFeatures = [];
+    let ynrGrouped = {red: [], green: [], orange: [], white: []};
+    let ynrLoaded = false;
+    let ynrError = false;
+    let ynrFeatures = [];
+    let panipatGrouped = {red: [], green: [], orange: [], white: []};
+    let panipatLoaded = false;
+    let panipatError = false;
+    let panipatFeatures = [];
+    let currentReportDistt = null;
+    let cityToLayers = {}; // Track layers per city
+
+    Promise.all([
+      fetch('data/conforming.geojson'),
+      fetch('data/non conforming.geojson')
+    ]).then(([response1, response2]) => {
+      if (!response1.ok || !response2.ok) {
+        throw new Error('File not found or server error: ' + (response1.statusText || response2.statusText));
+      }
+      return Promise.all([response1.json(), response2.json()]);
+    }).then(([data1, data2]) => {
+      const format = new ol.format.GeoJSON();
+      const features1 = format.readFeatures(data1, {
+        featureProjection: 'EPSG:3857',
+        dataProjection: 'EPSG:4326'
+      });
+      const features2 = format.readFeatures(data2, {
+        featureProjection: 'EPSG:3857',
+        dataProjection: 'EPSG:4326'
+      });
+      const features = [...features1, ...features2];
+      console.log('Loaded Faridabad features:', features.length);
+      if (features.length > 0) {
+        // Log properties of first feature to check field names
+        console.log('Feature properties keys:', Object.keys(features[0].getProperties()));
+        console.log('First feature UNIT CATEG or similar:', features[0].get('UNIT CATEG') || features[0].get('UNIT CATeg') || features[0].get('UNIT CATEGORY'));
+        console.log('First feature Zone:', features[0].get('Zone'));
+      }
+      faridabadFeatures = features;
+      let total = features.length;
+      let conforming = 0;
+      let nonConforming = 0;
+      let zones = new Set();
+      features.forEach(f => {
+        const zone = f.get('Zone');
+        const lowerZone = zone ? zone.toString().toLowerCase() : '';
+        zones.add(zone ? zone.toString() : 'null');
+        // Improved matching for non-conforming zones using regex for flexibility (handles "non-conforming", "non conforming", etc.)
+        const isNonConformingZone = zone ? /non[- ]conforming/i.test(zone.toString()) : false;
+        if (isNonConformingZone) {
+          nonConforming++;
+        } else {
+          conforming++;
+        }
+        let unitCateg = f.get('UNIT CATEG') || f.get('UNIT CATeg') || f.get('UNIT CATEGORY');
+        let cat;
+        if (unitCateg) {
+          const lower = unitCateg.toString().toLowerCase();
+          if (lower.includes('red')) cat = 'red';
+          else if (lower.includes('green')) cat = 'green';
+          else if (lower.includes('orange')) cat = 'orange';
+          else if (lower.includes('white')) cat = 'white';
+        }
+        if (cat) {
+          const cloned = f.clone();
+          const pointColor = cat === 'white' ? '#f0f0f0' : cat;
+          cloned.setStyle(new ol.style.Style({
+            image: new ol.style.Circle({
+              radius: 4,
+              fill: new ol.style.Fill({color: pointColor}),
+              stroke: new ol.style.Stroke({color: 'black', width: 2})
+            })
+          }));
+          const p = cloned.getProperties();
+          const cname = p['Company Na'] || p['company na'] || p['COMPANY NA'] || p['Company_Name'] || p['Company Name'] || p['Company'] || p['NAME'] || p.name || p['Company_na'] || '';
+          cloned.set('searchName', cname ? cname.toString().trim() : '');
+          cloned.set('category', cat);
+          faridabadGrouped[cat].push(cloned);
+        }
+      });
+      console.log('Unique Zone values:', Array.from(zones));
+      console.log('Faridabad stats - Total:', total, 'Conforming:', conforming, 'Non-Conforming:', nonConforming);
+
+      // Hardcoded stats as per requirement
+      document.getElementById('faridabad-total').textContent = 21460;
+      document.getElementById('faridabad-conforming').textContent = 5991;
+      document.getElementById('faridabad-nonconforming').textContent = 15469;
+
+      faridabadLoaded = true;
+      console.log('Faridabad grouped:', faridabadGrouped);
+    }).catch(err => {
+      console.error('Error preloading Faridabad data:', err);
+      faridabadError = true;
+    });
+
+    // Preload Rohtak data
+    fetch('data/Rohtak_points.geojson')
+      .then(r => r.json())
+      .then(data => {
+        const format = new ol.format.GeoJSON();
+        const features = format.readFeatures(data, {featureProjection: 'EPSG:3857', dataProjection: 'EPSG:4326'});
+        console.log('Loaded Rohtak features:', features.length);
+        if (features.length > 0) {
+          console.log('Rohtak Feature properties keys:', Object.keys(features[0].getProperties()));
+        }
+        rohtakFeatures = features;
+        let total = features.length;
+        let conforming = 0;
+        let nonConforming = 0;
+        features.forEach(f => {
+          const zone = f.get('Zone');
+          const isNonConformingZone = zone ? /non[- ]conforming/i.test(zone.toString()) : false;
+          if (isNonConformingZone) {
+            nonConforming++;
+          } else {
+            conforming++;
+          }
+          const unitCateg = f.get('UNIT_CATEG');
+          let cat;
+          if (unitCateg) {
+            const lower = unitCateg.toString().toLowerCase();
+            if (lower.includes('red')) cat = 'red';
+            else if (lower.includes('green')) cat = 'green';
+            else if (lower.includes('orange')) cat = 'orange';
+            else if (lower.includes('white')) cat = 'white';
+          }
+       if (cat) {
+            const cloned = f.clone();
+            const pointColor = cat === 'white' ? '#f0f0f0' : cat;
+            cloned.setStyle(new ol.style.Style({
+              image: new ol.style.Circle({
+                radius: 4,
+                fill: new ol.style.Fill({color: pointColor}),
+                stroke: new ol.style.Stroke({color: 'black', width: 2})
+              })
+            }));
+            const p = cloned.getProperties();
+            const cname = p['Company_na'] || p['Company Na'] || p['company na'] || p['COMPANY NA'] || p['Company_Name'] || p['Company Name'] || p['Company'] || p['NAME'] || p.name || '';
+            cloned.set('searchName', cname ? cname.toString().trim() : '');
+            cloned.set('category', cat);
+            rohtakGrouped[cat].push(cloned);
+          }
+        });
+        console.log('Rohtak stats - Total:', total, 'Conforming:', conforming, 'Non-Conforming:', nonConforming);
+       
+                // Hardcoded stats as per requirement
+        document.getElementById('rohtak-total').textContent = 4117;
+        document.getElementById('rohtak-conforming').textContent = 812;
+        document.getElementById('rohtak-nonconforming').textContent = 3305;
+
+        rohtakLoaded = true;
+        console.log('Rohtak grouped:', rohtakGrouped);
+      })
+      .catch(err => {
+        console.error('Error preloading Rohtak data:', err);
+        rohtakError = true;
+      });
+
+    // Preload Yamunanagar (YNR) data
+    fetch('data/YNR_POINTS.geojson')
+      .then(r => r.json())
+      .then(data => {
+        const format = new ol.format.GeoJSON();
+        const features = format.readFeatures(data, {featureProjection: 'EPSG:3857', dataProjection: 'EPSG:4326'});
+        console.log('Loaded Yamunanagar features:', features.length);
+        if (features.length > 0) {
+          console.log('Yamunanagar Feature properties keys:', Object.keys(features[0].getProperties()));
+        }
+        ynrFeatures = features;
+
+        let total = features.length;
+        let conforming = 0;
+        let nonConforming = 0;
+
+        features.forEach(f => {
+          const zone = f.get('Zone');
+          const isNonConformingZone = zone ? /non[- ]conforming/i.test(zone.toString()) : false;
+          if (isNonConformingZone) {
+            nonConforming++;
+          } else {
+            conforming++;
+          }
+
+          let unitCateg = f.get('UNIT CATEG') || f.get('UNIT CATeg') || f.get('UNIT CATEGORY') || f.get('UNIT_CATEG');
+          let cat;
+          if (unitCateg) {
+            const lower = unitCateg.toString().toLowerCase();
+            if (lower.includes('red')) cat = 'red';
+            else if (lower.includes('green')) cat = 'green';
+            else if (lower.includes('orange')) cat = 'orange';
+            else if (lower.includes('white')) cat = 'white';
+          }
+
+          if (cat) {
+            const cloned = f.clone();
+            const pointColor = cat === 'white' ? '#f0f0f0' : cat;
+            cloned.setStyle(new ol.style.Style({
+              image: new ol.style.Circle({
+                radius: 4,
+                fill: new ol.style.Fill({color: pointColor}),
+                stroke: new ol.style.Stroke({color: 'black', width: 2})
+              })
+            }));
+
+            const p = cloned.getProperties();
+            const cname = p['Company_na'] || p['Company Na'] || p['company na'] || p['COMPANY NA'] || p['Company_Name'] || p['Company Name'] || p['Company'] || p['NAME'] || p.name || '';
+            cloned.set('searchName', cname ? cname.toString().trim() : '');
+            cloned.set('category', cat);
+            ynrGrouped[cat].push(cloned);
+          }
+        });
+
+        console.log('Yamunanagar stats - Total:', total, 'Conforming:', conforming, 'Non-Conforming:', nonConforming);
+
+        // Hardcoded stats as per requirement (update if needed)
+        document.getElementById('ynr-total').textContent = total;
+        document.getElementById('ynr-conforming').textContent = 1413;
+        document.getElementById('ynr-nonconforming').textContent = 3329;
+
+        ynrLoaded = true;
+        console.log('Yamunanagar grouped:', ynrGrouped);
+      })
+      .catch(err => {
+        console.error('Error preloading Yamunanagar data:', err);
+        ynrError = true;
+      });
+
+    // Preload Panipat data
+    fetch('data/Panipat_points.geojson')
+      .then(r => r.json())
+      .then(data => {
+        const format = new ol.format.GeoJSON();
+        const features = format.readFeatures(data, {featureProjection: 'EPSG:3857', dataProjection: 'EPSG:4326'});
+        console.log('Loaded Panipat features:', features.length);
+        if (features.length > 0) {
+          console.log('Panipat Feature properties keys:', Object.keys(features[0].getProperties()));
+        }
+        panipatFeatures = features;
+
+        let total = features.length;
+        let conforming = 0;
+        let nonConforming = 0;
+
+        features.forEach(f => {
+          const zone = f.get('Zone');
+          const isNonConformingZone = zone ? /non[- ]conforming/i.test(zone.toString()) : false;
+          if (isNonConformingZone) {
+            nonConforming++;
+          } else {
+            conforming++;
+          }
+
+          let unitCateg = f.get('UNIT CATEG') || f.get('UNIT CATeg') || f.get('UNIT CATEGORY') || f.get('UNIT_CATEG');
+          let cat;
+          if (unitCateg) {
+            const lower = unitCateg.toString().toLowerCase();
+            if (lower.includes('red')) cat = 'red';
+            else if (lower.includes('green')) cat = 'green';
+            else if (lower.includes('orange')) cat = 'orange';
+            else if (lower.includes('white')) cat = 'white';
+          }
+
+          if (cat) {
+            const cloned = f.clone();
+            const pointColor = cat === 'white' ? '#f0f0f0' : cat;
+            cloned.setStyle(new ol.style.Style({
+              image: new ol.style.Circle({
+                radius: 4,
+                fill: new ol.style.Fill({color: pointColor}),
+                stroke: new ol.style.Stroke({color: 'black', width: 2})
+              })
+            }));
+
+            const p = cloned.getProperties();
+            const cname = p['Company_na'] || p['Company Na'] || p['company na'] || p['COMPANY NA'] || p['Company_Name'] || p['Company Name'] || p['Company'] || p['NAME'] || p.name || '';
+            cloned.set('searchName', cname ? cname.toString().trim() : '');
+            cloned.set('category', cat);
+            panipatGrouped[cat].push(cloned);
+          }
+        });
+
+        console.log('Panipat stats - Total:', total, 'Conforming:', conforming, 'Non-Conforming:', nonConforming);
+
+        // Dynamic stats
+        document.getElementById('panipat-total').textContent = total;
+        document.getElementById('panipat-conforming').textContent = 3318;
+        document.getElementById('panipat-nonconforming').textContent = 7487;
+
+        panipatLoaded = true;
+        console.log('Panipat grouped:', panipatGrouped);
+      })
+      .catch(err => {
+        console.error('Error preloading Panipat data:', err);
+        panipatError = true;
+      });
+
+      
+
+    // Haryana Boundary Layer (permanent background)
+    const boundarySource = new ol.source.Vector({
+      url: 'data/Haryana_boundary.geojson',
+      format: new ol.format.GeoJSON()
+    });
+
+    const boundaryLayer = new ol.layer.Vector({
+      source: boundarySource,
+      style: new ol.style.Style({
+        fill: new ol.style.Fill({
+          color: 'rgba(255, 255, 255, 0)'
+        }),
+        stroke: new ol.style.Stroke({
+          color: 'black',
+          width: 2
+        })
+      }),
+      zIndex: 50,
+      visible: true
+    });
+
+    const googleLayer = new ol.layer.Tile({
+      source: new ol.source.XYZ({
+        url: 'https://mt1.google.com/vt?lyrs=m&x={x}&y={y}&z={z}'
+      }),
+      visible: false,
+      zIndex: 1
+    });
+
+    const googleSatLayer = new ol.layer.Tile({
+      source: new ol.source.XYZ({
+        url: 'https://mt1.google.com/vt?lyrs=s&x={x}&y={y}&z={z}'
+      }),
+      visible: true,
+      zIndex: 1
+    });
+
+    const osmLayer = new ol.layer.Tile({
+      source: new ol.source.OSM(),
+      visible: false,
+      zIndex: 1
+    });
+
+    const satLayer = new ol.layer.Tile({
+      source: new ol.source.XYZ({
+        url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+      }),
+      visible: false,
+      zIndex: 1
+    });
+
+    const map = new ol.Map({
+      target: 'map',
+      layers: [googleLayer, googleSatLayer, osmLayer, satLayer, boundaryLayer],
+      view: new ol.View({
+        center: ol.proj.fromLonLat([76.0856, 29.0588]),
+        zoom: 7
+      })
+    });
+
+    // Visible landuses set
+    let visibleLanduses = new Set();
+    let visibleZones = new Set();
+
+    // Sample industrial data for specific cities (hardcoded points for demo, excluding Faridabad, Rohtak, Yamunanagar, Panipat)
+    const industrialData = {
+    };
+
+    const industrialLayers = {}; // To store OL layers
+    const createdFolders = new Set(); // Track created cities
+
+    // Local places data (sample industrial/city locations in Haryana)
+    const localPlaces = [
+      {name: "Gurugram", coords: [77.0295, 28.4595]},
+      {name: "Faridabad", coords: [77.3001, 28.4089]},
+      {name: "Hisar", coords: [75.7215, 29.1490]},
+      {name: "Panipat", coords: [76.9707, 29.3909]},
+      {name: "Sonipat", coords: [77.0160, 28.9904]},
+      {name: "Ambala", coords: [77.3076, 31.0950]},
+      {name: "Yamunanagar", coords: [77.2795, 30.1278]},
+      {name: "Karnal", coords: [76.9903, 29.6856]},
+      {name: "Rohtak", coords: [76.6066, 28.8945]},
+      {name: "Bhiwani", coords: [76.1396, 28.7935]}
+    ];
+
+    // Filter places based on role
+    let allowedPlaces = localPlaces;
+    if (role !== "all") {
+      allowedPlaces = localPlaces.filter(p => p.name.toLowerCase().includes(role));
+    }
+
+    // All suggestions based on allowed places
+    const allSuggestions = [
+      ...allowedPlaces.map(p => ({type: 'place', name: p.name, data: p})),
+      {type: 'layer', name: 'Google Maps'},
+      {type: 'layer', name: 'Google Satellite'},
+      {type: 'layer', name: 'OpenStreetMap'},
+      {type: 'layer', name: 'Satellite (ESRI)'}
+    ];
+
+    let currentSuggestions = [];
+    const suggestionsDiv = document.getElementById('suggestions');
+    const searchInput = document.getElementById('layerSearch');
+    const searchBtn = document.getElementById('searchBtn');
+    const baseMapSelect = document.getElementById('baseMapSelect');
+    const industrialLayersDiv = document.getElementById('industrialLayers');
+    const legendDiv = document.getElementById('legend');
+    const legendContent = document.getElementById('legend-content');
+    const popup = document.getElementById('popup');
+    const popupContent = document.getElementById('popup-content');
+    const popupClose = document.getElementById('popup-close');
+    const popupHeaderH3 = document.querySelector('#popup-header h3');
+    const chartTypeSelect = document.getElementById('chartTypeSelect');
+    const reportsContent = document.getElementById('reports-content');
+    const reportsTabBtn = document.getElementById('reportsTabBtn');
+
+    // Query Builder elements
+    const queryBuilder = document.getElementById('queryBuilder');
+    const queryClose = document.getElementById('query-close');
+    const districtSelect = document.getElementById('districtSelect');
+    const querySearch = document.getElementById('querySearch');
+    const searchHistoryDiv = document.getElementById('searchHistory');
+    const queryResults = document.getElementById('queryResults');
+    const resetQuery = document.getElementById('resetQuery');
+    const exportResults = document.getElementById('exportResults');
+    let currentQueryFeatures = [];
+    let currentResults = [];
+    let prevDistrict = null;
+    let searchHistory = [];
+
+    // Debounce function
+    function debounce(func, delay) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), delay);
+      };
+    }
+
+    // Search history functions
+    function addToHistory(companyName) {
+      if (!companyName || searchHistory.includes(companyName)) return;
+      searchHistory.unshift(companyName);
+      if (searchHistory.length > 5) searchHistory.pop();
+      displayHistory();
+    }
+
+    function displayHistory() {
+      searchHistoryDiv.innerHTML = '';
+      if (searchHistory.length === 0) return;
+      const heading = document.createElement('h5');
+      heading.textContent = 'Search History';
+      searchHistoryDiv.appendChild(heading);
+      const ul = document.createElement('ul');
+      searchHistory.forEach(companyName => {
+        const li = document.createElement('li');
+        li.textContent = companyName;
+        li.addEventListener('click', () => {
+          querySearch.value = companyName;
+          debouncedSearch();
+        });
+        ul.appendChild(li);
+      });
+      searchHistoryDiv.appendChild(ul);
+    }
+
+    queryClose.addEventListener('click', () => {
+      searchHistory = [];
+      displayHistory();
+      queryBuilder.style.display = 'none';
+    });
+
+    districtSelect.addEventListener('change', function() {
+  if (prevDistrict && prevDistrict !== this.value) {
+    const prevLower = prevDistrict;
+    const prevFolder = document.querySelector(`[data-city="${prevLower}"]`);
+    if (prevFolder) {
+      removeCityFolder(prevLower, prevFolder);
+    }
+  }
+  prevDistrict = this.value;
+
+  const lower = this.value;
+  const cityName = this.options[this.selectedIndex].text;
+  createCityFolder(cityName);
+
+  // Zoom to district
+  const disttToCoord = {
+    'rohtak': [76.6066, 28.8945],
+    'yamunanagar': [77.2795, 30.1278],
+    'faridabad': [77.3001, 28.4089],
+    'panipat': [76.9707, 29.3909]
+  };
+  if (disttToCoord[lower]) {
+    map.getView().setCenter(ol.proj.fromLonLat(disttToCoord[lower]));
+    map.getView().setZoom(11);
+  }
+
+  // Set all layers visible for this city
+  document.querySelectorAll(`input[data-city="${lower}"]`).forEach(cb => {
+    cb.checked = true;
+    cb.dispatchEvent(new Event('change'));
+  });
+
+  // Build currentQueryFeatures from actual map-layer features (so style changes are visible)
+  currentQueryFeatures = [];
+
+  function collectCityFeatures(lowerCity) {
+    currentQueryFeatures = [];
+    let anyFound = false;
+    const cats = ['red','green','orange','white'];
+    cats.forEach(cat => {
+      const layer = industrialLayers[`${lowerCity}-${cat}`];
+      if (layer && layer.getSource) {
+        const feats = layer.getSource().getFeatures();
+        feats.forEach(f => {
+          // Normalize company name into a searchable property
+          const p = f.getProperties();
+          const cname = p['Company Na'] 
+           || p['company na'] 
+           || p['COMPANY NA'] 
+           || p['Company_Name'] 
+           || p['Company Name'] 
+           || p['Company'] 
+           || p['NAME'] 
+           || p.name 
+           || p['Company_na'] 
+           || p['COMPANY_NA']   //  add this for Rohtak
+           || '';
+
+          f.set('searchName', cname ? cname.toString().trim() : '');
+          f.set('category', cat);
+          currentQueryFeatures.push(f);
+        });
+        if (feats.length) anyFound = true;
+      }
+    });
+    return anyFound;
+  }
+
+  if (lower === 'faridabad' || lower === 'rohtak' || lower === 'yamunanagar' || lower === 'panipat') {
+    // Try immediate collect; if layers not created yet, poll briefly (3s max)
+    if (!collectCityFeatures(lower)) {
+      let attempts = 0;
+      const t = setInterval(() => {
+        attempts++;
+        if (collectCityFeatures(lower) || attempts > 30) {
+          clearInterval(t);
+          if (attempts > 30) console.warn('Could not collect features for query builder (timeout).');
+        }
+      }, 100);
+    }
+  } else {
+    // Non-Faridabad/Rohtak: create ephemeral features (same as before) but set 'searchName' for consistency
+    const data = industrialData[lower];
+    currentQueryFeatures = [];
+    if (data) {
+      ['red','green','orange','white'].forEach(cat => {
+        data[cat].forEach(pointData => {
+          const feature = new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat(pointData.coords)),
+            ...pointData.properties
+          });
+          const pointColor = pointData.color === 'white' ? '#f0f0f0' : pointData.color;
+          feature.setStyle(new ol.style.Style({
+            image: new ol.style.Circle({
+              radius: 4,
+              fill: new ol.style.Fill({color: pointColor}),
+              stroke: new ol.style.Stroke({color: 'black', width: 2})
+            })
+          }));
+          const p = feature.getProperties();
+          const cname = p['Company Na'] 
+           || p['company na'] 
+           || p['Company'] 
+           || p['NAME'] 
+           || p.name 
+           || p['Company_na'] 
+           || p['COMPANY_NA']   //  include here too
+           || pointData.properties.name 
+           || '';
+
+          feature.set('searchName', cname ? cname.toString().trim() : '');
+          feature.set('category', cat);
+          currentQueryFeatures.push(feature);
+        });
+      });
+    }
+  }
+
+  currentResults = [];
+  querySearch.value = '';
+  queryResults.innerHTML = '';
+  searchHistory = [];
+  displayHistory();
+});
+
+    const debouncedSearch = debounce(function() {
+      const term = querySearch.value.toLowerCase().trim();
+      if (!term) {
+        queryResults.innerHTML = '';
+        currentResults = [];
+        displayHistory();
+        return;
+      }
+      const results = currentQueryFeatures.filter(f => {
+        const props = f.getProperties();
+        for (let key in props) {
+          if (key !== 'geometry' && props[key]) {
+            if (props[key].toString().toLowerCase().includes(term)) {
+              return true;
+            }
+          }
+        }
+        return false;
+      });
+      currentResults = results;
+      displayQueryResults(results);
+      displayHistory(); // Update highlight in history
+    }, 300);
+
+    querySearch.addEventListener('input', debouncedSearch);
+
+    function displayQueryResults(results) {
+  queryResults.innerHTML = '';
+  if (results.length === 0) {
+    queryResults.innerHTML = '<p style="color: #666; font-style: italic;">No results found.</p>';
+    return;
+  }
+  results.forEach((f, index) => {
+    const props = f.getProperties();
+    const name = (props['searchName'] && props['searchName'].toString().trim()) ||
+                 props['Company Na'] || props['company na'] || props['COMPANY NA'] ||
+                 props['Company_Name'] || props['Company Name'] || props['Company'] ||
+                 props['NAME'] || props.name || props['Company_na'] || `Industry ${index + 1}`;
+
+    const div = document.createElement('div');
+    div.style.cssText = 'padding: 8px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s;';
+    if (results.length === 1) {
+      div.classList.add('selected');
+    }
+    let text = name;
+    const extra = [];
+    if (props.category) extra.push(props.category);
+    if (props.zone) extra.push(props.zone);
+    if (extra.length > 0) {
+      text += ` <span style="color: #666; font-size: 0.9em;">(${extra.join(', ')})</span>`;
+    }
+    div.innerHTML = text;
+
+    div.addEventListener('click', () => {
+      // Clear previous selected
+      document.querySelectorAll('#queryResults div').forEach(d => d.classList.remove('selected'));
+      div.classList.add('selected');
+
+      const geom = f.getGeometry();
+      if (!geom) return;
+      const coord = geom.getCoordinates();
+      // animate to selected feature
+      if (map && map.getView) {
+        try {
+          map.getView().animate({center: coord, zoom: 16, duration: 600});
+        } catch (err) {
+          map.getView().setCenter(coord);
+          map.getView().setZoom(16);
+        }
+      }
+
+      // Clear any existing blink on this feature
+      if (f.__blinkInterval) {
+        clearInterval(f.__blinkInterval);
+        f.__blinkInterval = null;
+      }
+
+      // Safely store original style (use null if undefined so we can restore layer style)
+      const originalStyle = f.getStyle() !== undefined ? f.getStyle() : null;
+
+      const highlightStyle = new ol.style.Style({
+        image: new ol.style.Circle({
+          radius: 8,
+          fill: new ol.style.Fill({ color: 'rgba(255,255,0,0.95)' }),
+          stroke: new ol.style.Stroke({ color: 'red', width: 3 })
+        })
+      });
+
+      // Start blinking immediately
+      let visible = true;
+      f.setStyle(highlightStyle);
+      f.__blinkInterval = setInterval(() => {
+        try {
+          f.setStyle(visible ? originalStyle : highlightStyle);
+          visible = !visible;
+        } catch (err) {
+          console.error('Error toggling blink style', err);
+        }
+      }, 500);
+
+      // Stop blinking after 10 seconds and restore original style
+      setTimeout(() => {
+        if (f.__blinkInterval) {
+          clearInterval(f.__blinkInterval);
+          f.__blinkInterval = null;
+        }
+        try {
+          f.setStyle(originalStyle);
+        } catch (err) {
+          console.error('Error restoring style', err);
+        }
+      }, 10000);
+
+      // Display selected item in search bar
+      querySearch.value = name;
+      // Add selected company to history
+      addToHistory(name);
+      // Refilter to show only the selected item
+      debouncedSearch();
+    });
+
+    queryResults.appendChild(div);
+  });
+}
+
+    resetQuery.addEventListener('click', () => {
+      const lower = districtSelect.value;
+      const folder = document.querySelector(`[data-city="${lower}"]`);
+      if (folder) {
+        removeCityFolder(lower, folder);
+      }
+      currentResults = [];
+      currentQueryFeatures = [];
+      querySearch.value = '';
+      queryResults.innerHTML = '';
+      searchHistory = [];
+      displayHistory();
+    });
+
+    exportResults.addEventListener('click', () => {
+      if (currentResults.length === 0) {
+        alert('No results to export');
+        return;
+      }
+      console.log('Exporting results:', currentResults.length); // Debug
+      let headers = new Set();
+      currentResults.forEach(f => {
+        Object.keys(f.getProperties()).forEach(k => {
+          if (k !== 'geometry') headers.add(k);
+        });
+      });
+      headers = Array.from(headers);
+      let csv = headers.join(',') + '\n';
+      currentResults.forEach(f => {
+        const props = f.getProperties();
+        const row = headers.map(h => {
+          let val = props[h] !== undefined ? props[h] : '';
+          if (typeof val === 'string') val = val.replace(/"/g, '""');
+          return `"${val}"`;
+        }).join(',');
+        csv += row + '\n';
+      });
+      console.log('CSV content:', csv); // Debug
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${districtSelect.value}_selected_industries.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+
+    function toggleQueryBuilder() {
+      const isVisible = queryBuilder.style.display === 'block';
+      if (isVisible) {
+        // closing
+        searchHistory = [];
+        displayHistory();
+        queryBuilder.style.display = 'none';
+      } else {
+        // opening
+        queryBuilder.style.display = 'block';
+        districtSelect.dispatchEvent(new Event('change'));
+      }
+    }
+
+    // Draggable function
+    function makeDraggable(element) {
+      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      let headerSelector = element.id === 'popup' ? '#popup-header' : '#chart-header';
+      if (element.id === 'legend') {
+        headerSelector = '.legend-header';
+      } else if (element.id === 'queryBuilder') {
+        headerSelector = '#query-header';
+      }
+      const header = element.querySelector(headerSelector);
+      if (header) {
+        header.onmousedown = dragMouseDown;
+      }
+
+      function dragMouseDown(e) {
+        e = e || window.event;
+        if (e.target.tagName.toLowerCase() === 'button' || (e.target.closest && e.target.closest('button'))) {
+          return;
+        }
+        e.preventDefault();
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+      }
+
+      function elementDrag(e) {
+        e = e || window.event;
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        element.style.top = (element.offsetTop - pos2) + "px";
+        element.style.left = (element.offsetLeft - pos1) + "px";
+        element.style.right = 'auto';
+        element.style.bottom = 'auto';
+      }
+
+      function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+      }
+    }
+
+    // Function to fit map to city extent
+    function fitToCity(lowerCity) {
+      let allExtents = [];
+      const layers = cityToLayers[lowerCity] || [];
+      layers.forEach(layer => {
+        const source = layer.getSource();
+        const features = source.getFeatures();
+        features.forEach(f => {
+          const geom = f.getGeometry();
+          if (geom) {
+            allExtents.push(geom.getExtent());
+          }
+        });
+      });
+      if (allExtents.length > 0) {
+        const extent = ol.extent.boundingExtent(allExtents);
+        map.getView().fit(extent, {padding: [50, 50, 50, 50]});
+      } else {
+        console.log('No features to fit for', lowerCity);
+      }
+    }
+
+    // Function to get category counts for a district
+    function getCategoryCounts(distt) {
+      const lower = distt.replace(' Distt', '').toLowerCase();
+      if (lower === 'faridabad') {
+        return {
+          red: faridabadGrouped.red.length,
+          green: faridabadGrouped.green.length,
+          orange: faridabadGrouped.orange.length,
+          white: faridabadGrouped.white.length
+        };
+      } else if (lower === 'rohtak') {
+        return {
+          red: rohtakGrouped.red.length,
+          green: rohtakGrouped.green.length,
+          orange: rohtakGrouped.orange.length,
+          white: rohtakGrouped.white.length
+        };
+      } else if (lower === 'yamunanagar') {
+        return {
+          red: ynrGrouped.red.length,
+          green: ynrGrouped.green.length,
+          orange: ynrGrouped.orange.length,
+          white: ynrGrouped.white.length
+        };
+      } else if (lower === 'panipat') {
+        return {
+          red: panipatGrouped.red.length,
+          green: panipatGrouped.green.length,
+          orange: panipatGrouped.orange.length,
+          white: panipatGrouped.white.length
+        };
+      } else {
+        const data = industrialData[lower];
+        if (data) {
+          return {
+            red: data.red.length,
+            green: data.green.length,
+            orange: data.orange.length,
+            white: data.white.length
+          };
+        }
+      }
+      return {red: 0, green: 0, orange: 0, white: 0};
+    }
+
+    // Function to create hatch pattern
+    function createHatchPattern(color, alpha = 0.3) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 10;
+      canvas.height = 10;
+      ctx.clearRect(0, 0, 10, 10);
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(10, 10);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, 10);
+      ctx.lineTo(10, 0);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      return ctx.createPattern(canvas, 'repeat');
+    }
+
+    // Function to create dot pattern
+    function createDotPattern(color, alpha = 0.3) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = 10;
+      canvas.height = 10;
+      ctx.clearRect(0, 0, 10, 10);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(5, 5, 1.5, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      return ctx.createPattern(canvas, 'repeat');
+    }
+
+    // Function to build legend with checkboxes
+    function buildLegend() {
+      const landuses = [
+        {name: 'Residential', pattern: createHatchPattern, color: 'yellow', alpha: 0.3, key: 'residential'},
+        {name: 'Existing Town', pattern: createHatchPattern, color: 'black', alpha: 0.3, key: 'existing town'},
+        {name: 'Existing Town 1', pattern: createHatchPattern, color: 'black', alpha: 0.3, key: 'existing town 1'},
+        {name: 'Commercial', pattern: createHatchPattern, color: 'skyblue', alpha: 0.5, key: 'commercial'},
+        {name: 'Industrial', pattern: createHatchPattern, color: 'violet', alpha: 0.3, key: 'industrial'},
+        {name: 'Public & Semi Public', pattern: createHatchPattern, color: 'red', alpha: 0.3, key: 'public and semi public uses'},
+        {name: 'Public Utilities', pattern: createDotPattern, color: 'red', alpha: 0.3, key: 'public utilities'},
+        {name: 'Mixed Land Use', pattern: createHatchPattern, color: 'blue', alpha: 0.3, key: 'mixed land use'},
+        {name: 'Transport & Communication', pattern: createHatchPattern, color: 'grey', alpha: 0.5, key: 'transport & communication'},
+        {name: 'Transportation', pattern: createHatchPattern, color: 'orange', alpha: 0.5, key: 'transportation'},
+        {name: 'Open Space', pattern: createHatchPattern, color: 'green', alpha: 0.3, key: 'open space'}
+      ];
+
+      // Initialize visibleLanduses
+      landuses.forEach(landuse => {
+        visibleLanduses.add(landuse.key);
+      });
+
+      legendContent.innerHTML = '';
+      landuses.forEach(landuse => {
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = true;
+        checkbox.dataset.landuse = landuse.key;
+        checkbox.addEventListener('change', function() {
+          if (this.checked) {
+            visibleLanduses.add(landuse.key);
+          } else {
+            visibleLanduses.delete(landuse.key);
+          }
+          // Refresh the sector layer if it exists
+          if (window.faridabadSectorLayer) {
+            window.faridabadSectorLayer.changed();
+          }
+          if (window.yamunanagarSectorLayer) {
+            window.yamunanagarSectorLayer.changed();
+          }
+          if (window.rohtakSectorLayer) {
+            window.rohtakSectorLayer.changed();
+          }
+          if (window.panipatSectorLayer) {
+            window.panipatSectorLayer.changed();
+          }
+        });
+        item.appendChild(checkbox);
+
+        let swatch;
+        if (landuse.pattern) {
+          const canvas = document.createElement('canvas');
+          canvas.width = 20;
+          canvas.height = 15;
+          canvas.className = 'legend-swatch';
+          const pattern = landuse.pattern(landuse.color, landuse.alpha);
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = pattern || landuse.color;
+          ctx.fillRect(0, 0, 20, 15);
+          swatch = canvas;
+        } else {
+          swatch = document.createElement('div');
+          swatch.className = 'legend-swatch';
+          swatch.style.backgroundColor = landuse.color;
+        }
+        item.appendChild(swatch);
+
+        const label = document.createElement('span');
+        label.textContent = landuse.name;
+        item.appendChild(label);
+        legendContent.appendChild(item);
+      });
+      document.querySelector('.legend h4').textContent = 'Landuse Legend';
+      legendDiv.style.display = 'block';
+    }
+
+    function buildZoneLegend() {
+      const zones = [
+        {name: 'Conforming', color: 'rgba(128, 0, 128, 0.5)', key: 'conforming'},
+        {name: 'Non-Conforming', color: 'rgba(255,255,0,0.5)', key: 'non-conforming'}
+      ];
+
+      // Initialize visibleZones
+      zones.forEach(zone => {
+        visibleZones.add(zone.key);
+      });
+
+      legendContent.innerHTML = '';
+      zones.forEach(zone => {
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = true;
+        checkbox.dataset.zone = zone.key;
+        checkbox.addEventListener('change', function() {
+          if (this.checked) {
+            visibleZones.add(zone.key);
+          } else {
+            visibleZones.delete(zone.key);
+          }
+          // Refresh the cluster layer if it exists
+          if (window.faridabadClusterLayer) {
+            window.faridabadClusterLayer.changed();
+          }
+          if (window.yamunanagarClusterLayer) {
+            window.yamunanagarClusterLayer.changed();
+          }
+        });
+        item.appendChild(checkbox);
+
+        const swatch = document.createElement('div');
+        swatch.className = 'legend-swatch';
+        swatch.style.backgroundColor = zone.color;
+        item.appendChild(swatch);
+
+        const label = document.createElement('span');
+        label.textContent = zone.name;
+        item.appendChild(label);
+        legendContent.appendChild(item);
+      });
+      document.querySelector('.legend h4').textContent = 'Zone Legend';
+      legendDiv.style.display = 'block';
+    }
+
+    function buildYamunanagarZoneLegend() {
+      const zones = [
+        {name: 'Conforming', color: 'rgba(255, 255, 0, 0.5)', key: 'conforming'},
+        {name: 'Non-Conforming', color: 'rgba(128, 0, 128, 0.5)', key: 'non-conforming'}
+      ];
+
+      // Initialize visibleZones
+      zones.forEach(zone => {
+        visibleZones.add(zone.key);
+      });
+
+      legendContent.innerHTML = '';
+      zones.forEach(zone => {
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = true;
+        checkbox.dataset.zone = zone.key;
+        checkbox.addEventListener('change', function() {
+          if (this.checked) {
+            visibleZones.add(zone.key);
+          } else {
+            visibleZones.delete(zone.key);
+          }
+          // Refresh the cluster layer if it exists
+          if (window.faridabadClusterLayer) {
+            window.faridabadClusterLayer.changed();
+          }
+          if (window.yamunanagarClusterLayer) {
+            window.yamunanagarClusterLayer.changed();
+          }
+        });
+        item.appendChild(checkbox);
+
+        const swatch = document.createElement('div');
+        swatch.className = 'legend-swatch';
+        swatch.style.backgroundColor = zone.color;
+        item.appendChild(swatch);
+
+        const label = document.createElement('span');
+        label.textContent = zone.name;
+        item.appendChild(label);
+        legendContent.appendChild(item);
+      });
+      document.querySelector('.legend h4').textContent = 'Cluster Legend';
+      legendDiv.style.display = 'block';
+    }
+
+    // Style function for ward boundaries
+    function getWardStyle(feature) {
+      const fillColor = 'rgba(0, 0, 255, 0.5)'; // Blue with 50% opacity
+
+      const stroke = new ol.style.Stroke({
+        color: 'black',
+        width: 1
+      });
+      const textValue = feature.get('WARD_NO') || '';
+      const text = new ol.style.Text({
+        text: textValue.toString(),
+        font: 'bold 12px sans-serif',
+        fill: new ol.style.Fill({ color: 'black' }),
+        stroke: new ol.style.Stroke({ color: 'white', width: 2 }),
+        offsetY: 0
+      });
+
+      return new ol.style.Style({
+        fill: new ol.style.Fill({ color: fillColor }),
+        stroke: stroke,
+        text: text
+      });
+    }
+
+    // Updated style function for sector boundaries
+    function getSectorStyle(feature) {
+      let landuse = feature.get('LANDUSE_DE');
+      if (!landuse) {
+        landuse = 'unknown';
+      } else {
+        landuse = landuse.toString().toLowerCase().trim();
+        landuse = landuse.replace(/using|&/g, 'and').replace(/\s+/g, ' ');
+      }
+
+      // Check if visible
+      if (!visibleLanduses.has(landuse)) {
+        return new ol.style.Style({}); // Invisible
+      }
+
+      let fillColor = 'rgba(128, 128, 128, 0.3)'; // default
+      switch (landuse) {
+        case 'residential':
+          fillColor = createHatchPattern('yellow', 0.3);
+          break;
+        case 'existing town':
+          fillColor = createHatchPattern('black', 0.3);
+          break;
+        case 'existing town 1':
+          fillColor = createHatchPattern('black', 0.3);
+          break;
+        case 'commercial':
+          fillColor = createHatchPattern('skyblue', 0.5);
+          break;
+        case 'industrial':
+          fillColor = createHatchPattern('violet', 0.3);
+          break;
+        case 'public and semi public uses':
+          fillColor = createHatchPattern('red', 0.3);
+          break;
+        case 'public utilities':
+          fillColor = createDotPattern('red', 0.3);
+          break;
+        case 'mixed land use':
+          fillColor = createHatchPattern('blue', 0.3);
+          break;
+        case 'transport & communication':
+          fillColor = createHatchPattern('grey', 0.5);
+          break;
+        case 'transportation':
+          fillColor = createHatchPattern('orange', 0.5);
+          break;
+        case 'open space':
+          fillColor = createHatchPattern('green', 0.3);
+          break;
+        default:
+          console.warn('Unknown landuse:', landuse);
+          fillColor = 'rgba(128, 128, 128, 0.3)';
+      }
+
+      const stroke = new ol.style.Stroke({
+        color: 'black',
+        width: 1
+      });
+      const text = new ol.style.Text({
+        text: feature.get('SECTOR_NO') ? feature.get('SECTOR_NO').toString() : '',
+        font: 'bold 12px sans-serif',
+        fill: new ol.style.Fill({ color: 'black' }),
+        stroke: new ol.style.Stroke({ color: 'white', width: 2 }),
+        offsetY: 0
+      });
+
+      return new ol.style.Style({
+        fill: new ol.style.Fill({ color: fillColor }),
+        stroke: stroke,
+        text: text
+      });
+    }
+
+// Style function for Faridabad cluster boundaries
+function getClusterStyle(feature) {
+  let zone = feature.get('ZONE'); // field is UPPERCASE
+  if (!zone) {
+    zone = 'unknown';
+  } else {
+    zone = zone.toString().toLowerCase().trim();
+  }
+
+  // Detect non-conforming zones
+  const isNonConforming =
+    zone.includes('non conforming') || zone.includes('non-conforming');
+  const zoneKey = isNonConforming ? 'non-conforming' : 'conforming';
+
+  // Check visibility
+  if (!visibleZones.has(zoneKey)) {
+    return new ol.style.Style({}); // Invisible
+  }
+
+  // Fill color: Purple = conforming, Yellow = non-conforming
+  const fillColor = isNonConforming
+    ? 'rgba(255, 255, 0, 0.5)' // Yellow
+    : 'rgba(128, 0, 128, 0.5)'; // Purple
+
+  const stroke = new ol.style.Stroke({
+    color: 'black',
+    width: 1,
+  });
+
+  // Label: only Name field (capital N)
+  const nameValue = feature.get('Name') || '';
+  const text = new ol.style.Text({
+    text: nameValue.toString(),
+    font: 'bold 12px sans-serif',
+    fill: new ol.style.Fill({ color: 'black' }),
+    stroke: new ol.style.Stroke({ color: 'white', width: 2 }),
+    offsetY: 0,
+  });
+
+  return new ol.style.Style({
+    fill: new ol.style.Fill({ color: fillColor }),
+    stroke: stroke,
+    text: text,
+  });
+}
+
+// Style function for Yamunanagar cluster boundaries
+function getYamunanagarClusterStyle(feature) {
+ let category = feature.get('CATEGORY');
+if (!category) {
+  category = 'unknown';
+} else {
+  category = category.toString().toLowerCase().trim();
+}
+
+// Explicit checks
+let categoryKey;
+if (category === 'conforming') {
+  categoryKey = 'conforming';
+} else if (category === 'non-conforming') {
+  categoryKey = 'non-conforming';
+} else {
+  categoryKey = 'unknown';
+}
+
+// Check visibility
+if (!visibleZones.has(categoryKey)) {
+  return new ol.style.Style({}); // Invisible
+}
+
+// Fill color: Yellow = conforming, Purple = non-conforming
+const fillColor = categoryKey === 'conforming'
+  ? 'rgba(255, 255, 0, 0.5)' // Yellow
+  : 'rgba(128, 0, 128, 0.5)'; // Purple
+
+const stroke = new ol.style.Stroke({
+  color: 'black',
+  width: 1,
+});
+
+// Label: CLUSTER field
+const clusterValue = feature.get('CLUSTER') || '';
+const text = new ol.style.Text({
+  text: clusterValue.toString(),
+  font: 'bold 12px sans-serif',
+  fill: new ol.style.Fill({ color: 'black' }),
+  stroke: new ol.style.Stroke({ color: 'white', width: 2 }),
+  offsetY: 0,
+});
+
+return new ol.style.Style({
+  fill: new ol.style.Fill({ color: fillColor }),
+  stroke: stroke,
+  text: text,
+});
+
+}
+
+// Style function for Yamunanagar sector boundaries
+function getYamunanagarSectorStyle(feature) {
+  let category = feature.get('CATEGORY');
+  if (!category) {
+    category = 'unknown';
+  } else {
+    category = category.toString().toLowerCase().trim();
+    category = category.replace(/using|&/g, 'and').replace(/\s+/g, ' ');
+  }
+
+  // Check if visible
+  if (!visibleLanduses.has(category)) {
+    return new ol.style.Style({}); // Invisible
+  }
+
+  let fillColor = 'rgba(128, 128, 128, 0.3)'; // default
+  switch (category) {
+    case 'residential':
+      fillColor = createHatchPattern('yellow', 0.3);
+      break;
+    case 'existing town':
+      fillColor = createHatchPattern('black', 0.3);
+      break;
+    case 'existing town 1':
+      fillColor = createHatchPattern('black', 0.3);
+      break;
+    case 'commercial':
+      fillColor = createHatchPattern('skyblue', 0.5);
+      break;
+    case 'industrial':
+      fillColor = createHatchPattern('violet', 0.3);
+      break;
+    case 'public and semi public uses':
+      fillColor = createHatchPattern('red', 0.3);
+      break;
+    case 'public utilities':
+      fillColor = createDotPattern('red', 0.3);
+      break;
+    case 'mixed land use':
+      fillColor = createHatchPattern('blue', 0.3);
+      break;
+    case 'transport & communication':
+      fillColor = createHatchPattern('grey', 0.5);
+      break;
+    case 'transportation':
+      fillColor = createHatchPattern('orange', 0.5);
+      break;
+    case 'open space':
+      fillColor = createHatchPattern('green', 0.3);
+      break;
+    default:
+      console.warn('Unknown category:', category);
+      fillColor = 'rgba(128, 128, 128, 0.3)';
+  }
+
+  const stroke = new ol.style.Stroke({
+    color: 'black',
+    width: 1
+  });
+  const textValue = feature.get('SECTOR') || '';
+  const text = new ol.style.Text({
+    text: textValue.toString(),
+    font: 'bold 12px sans-serif',
+    fill: new ol.style.Fill({ color: 'black' }),
+    stroke: new ol.style.Stroke({ color: 'white', width: 2 }),
+    offsetY: 0
+  });
+
+  return new ol.style.Style({
+    fill: new ol.style.Fill({ color: fillColor }),
+    stroke: stroke,
+    text: text
+  });
+}
+
+// Style function for Rohtak sector boundaries
+function getRohtakSectorStyle(feature) {
+  let category = feature.get('CATEGORY');
+  if (!category) {
+    category = 'unknown';
+  } else {
+    category = category.toString().toLowerCase().trim();
+    category = category.replace(/using|&/g, 'and').replace(/\s+/g, ' ');
+  }
+
+  // Check if visible
+  if (!visibleLanduses.has(category)) {
+    return new ol.style.Style({}); // Invisible
+  }
+
+  let fillColor = 'rgba(128, 128, 128, 0.3)'; // default
+  switch (category) {
+    case 'residential':
+      fillColor = createHatchPattern('yellow', 0.3);
+      break;
+    case 'existing town':
+      fillColor = createHatchPattern('black', 0.3);
+      break;
+    case 'existing town 1':
+      fillColor = createHatchPattern('black', 0.3);
+      break;
+    case 'commercial':
+      fillColor = createHatchPattern('skyblue', 0.5);
+      break;
+    case 'industrial':
+      fillColor = createHatchPattern('violet', 0.3);
+      break;
+    case 'public and semi public uses':
+      fillColor = createHatchPattern('red', 0.3);
+      break;
+    case 'public utilities':
+      fillColor = createDotPattern('red', 0.3);
+      break;
+    case 'mixed land use':
+      fillColor = createHatchPattern('blue', 0.3);
+      break;
+    case 'transport & communication':
+      fillColor = createHatchPattern('grey', 0.5);
+      break;
+    case 'transportation':
+      fillColor = createHatchPattern('orange', 0.5);
+      break;
+    case 'open space':
+      fillColor = createHatchPattern('green', 0.3);
+      break;
+    default:
+      console.warn('Unknown category:', category);
+      fillColor = 'rgba(128, 128, 128, 0.3)';
+  }
+
+  const stroke = new ol.style.Stroke({
+    color: 'black',
+    width: 1
+  });
+  const textValue = feature.get('SECTOR_NO') || '';
+  const text = new ol.style.Text({
+    text: textValue.toString(),
+    font: 'bold 12px sans-serif',
+    fill: new ol.style.Fill({ color: 'black' }),
+    stroke: new ol.style.Stroke({ color: 'white', width: 2 }),
+    offsetY: 0
+  });
+
+  return new ol.style.Style({
+    fill: new ol.style.Fill({ color: fillColor }),
+    stroke: stroke,
+    text: text
+  });
+}
+
+// Function to extract only Name and ZONE for Faridabad popups/attribute display
+function getClusterAttributes(feature) {
+  return {
+    Name: feature.get('Name') || '',
+    ZONE: feature.get('ZONE') || '',
+  };
+}
+
+// Function to extract only CLUSTER and CATEGORY for Yamunanagar popups/attribute display
+function getYamunanagarClusterAttributes(feature) {
+  return {
+    CLUSTER: feature.get('CLUSTER') || '',
+    CATEGORY: feature.get('CATEGORY') || '',
+  };
+}
+
+// Function to extract SECTOR and CATEGORY for Yamunanagar sector popups
+function getYamunanagarSectorAttributes(feature) {
+  return {
+    SECTOR: feature.get('SECTOR') || '',
+    CATEGORY: feature.get('CATEGORY') || '',
+  };
+}
+
+// Function to extract SECTOR_NO and LANDUSE_DE for Panipat/Faridabad sector popups
+function getSectorAttributes(feature) {
+  return {
+    SECTOR_NO: feature.get('SECTOR_NO') || '',
+    LANDUSE_DE: feature.get('LANDUSE_DE') || '',
+  };
+}
+
+// Function to extract SECTOR_NO and CATEGORY for Rohtak sector popups
+function getRohtakSectorAttributes(feature) {
+  return {
+    SECTOR_NO: feature.get('SECTOR_NO') || '',
+    CATEGORY: feature.get('CATEGORY') || '',
+  };
+}
+
+// Popup handling (only Name + ZONE or CLUSTER + CATEGORY)
+map.on('singleclick', function (evt) {
+  const feature = map.forEachFeatureAtPixel(evt.pixel, function (f) {
+    return f;
+  });
+
+  if (feature && feature.get('ZONE') !== undefined) {
+    const attrs = getClusterAttributes(feature);
+    const content = `
+      <div>
+        <b>Name:</b> ${attrs.Name}<br/>
+        <b>ZONE:</b> ${attrs.ZONE}
+      </div>
+    `;
+    popup.setPosition(evt.coordinate);
+    popupContent.innerHTML = content;
+    popup.style.display = 'block';
+  } else if (feature && feature.get('CATEGORY') !== undefined && feature.get('CLUSTER') !== undefined) {
+    const attrs = getYamunanagarClusterAttributes(feature);
+    const content = `
+      <div>
+        <b>Cluster:</b> ${attrs.CLUSTER}<br/>
+        <b>CATEGORY:</b> ${attrs.CATEGORY}
+      </div>
+    `;
+    popup.setPosition(evt.coordinate);
+    popupContent.innerHTML = content;
+    popup.style.display = 'block';
+  } else if (feature && feature.get('CATEGORY') !== undefined && feature.get('SECTOR') !== undefined) {
+    const attrs = getYamunanagarSectorAttributes(feature);
+    const content = `
+      <div>
+        <b>Sector:</b> ${attrs.SECTOR}<br/>
+        <b>CATEGORY:</b> ${attrs.CATEGORY}
+      </div>
+    `;
+    popup.setPosition(evt.coordinate);
+    popupContent.innerHTML = content;
+    popup.style.display = 'block';
+  } else if (feature && feature.get('SECTOR_NO') !== undefined && feature.get('LANDUSE_DE') !== undefined) {
+    const attrs = getSectorAttributes(feature);
+    const content = `
+      <div>
+        <b>Sector:</b> ${attrs.SECTOR_NO}<br/>
+        <b>LANDUSE_DE:</b> ${attrs.LANDUSE_DE}
+      </div>
+    `;
+    popup.setPosition(evt.coordinate);
+    popupContent.innerHTML = content;
+    popup.style.display = 'block';
+  } else if (feature && feature.get('SECTOR_NO') !== undefined && feature.get('CATEGORY') !== undefined) {
+    const attrs = getRohtakSectorAttributes(feature);
+    const content = `
+      <div>
+        <b>Sector:</b> ${attrs.SECTOR_NO}<br/>
+        <b>CATEGORY:</b> ${attrs.CATEGORY}
+      </div>
+    `;
+    popup.setPosition(evt.coordinate);
+    popupContent.innerHTML = content;
+    popup.style.display = 'block';
+  } else {
+    popup.style.display = 'none';
+  }
+});
+
+
+
+    // Function to remove city folder and layers
+    function removeCityFolder(lowerCity, folderDiv) {
+      folderDiv.remove();
+      createdFolders.delete(lowerCity);
+      ['red', 'green', 'orange', 'white'].forEach(cat => {
+        const layerKey = `${lowerCity}-${cat}`;
+        const layer = industrialLayers[layerKey];
+        if (layer) {
+          map.removeLayer(layer);
+          delete industrialLayers[layerKey];
+        }
+      });
+      delete cityToLayers[lowerCity];
+      if (lowerCity === 'faridabad') {
+        if (window.faridabadSectorLayer) {
+          map.removeLayer(window.faridabadSectorLayer);
+          delete window.faridabadSectorLayer;
+        }
+        if (window.faridabadClusterLayer) {
+          map.removeLayer(window.faridabadClusterLayer);
+          delete window.faridabadClusterLayer;
+        }
+        if (window.panipatSectorLayer) {
+          map.removeLayer(window.panipatSectorLayer);
+          delete window.panipatSectorLayer;
+        }
+        if (window.rohtakSectorLayer) {
+          map.removeLayer(window.rohtakSectorLayer);
+          delete window.rohtakSectorLayer;
+        }
+        legendDiv.style.display = 'none';
+      }
+      if (lowerCity === 'yamunanagar') {
+        if (window.yamunanagarWardLayer) {
+          map.removeLayer(window.yamunanagarWardLayer);
+          delete window.yamunanagarWardLayer;
+        }
+        if (window.yamunanagarClusterLayer) {
+          map.removeLayer(window.yamunanagarClusterLayer);
+          delete window.yamunanagarClusterLayer;
+        }
+        if (window.yamunanagarSectorLayer) {
+          map.removeLayer(window.yamunanagarSectorLayer);
+          delete window.yamunanagarSectorLayer;
+        }
+        if (window.panipatSectorLayer) {
+          map.removeLayer(window.panipatSectorLayer);
+          delete window.panipatSectorLayer;
+        }
+        if (window.rohtakSectorLayer) {
+          map.removeLayer(window.rohtakSectorLayer);
+          delete window.rohtakSectorLayer;
+        }
+        legendDiv.style.display = 'none';
+      }
+      if (lowerCity === 'panipat') {
+        if (window.panipatSectorLayer) {
+          map.removeLayer(window.panipatSectorLayer);
+          delete window.panipatSectorLayer;
+        }
+        if (window.faridabadSectorLayer) {
+          map.removeLayer(window.faridabadSectorLayer);
+          delete window.faridabadSectorLayer;
+        }
+        if (window.faridabadClusterLayer) {
+          map.removeLayer(window.faridabadClusterLayer);
+          delete window.faridabadClusterLayer;
+        }
+        if (window.yamunanagarWardLayer) {
+          map.removeLayer(window.yamunanagarWardLayer);
+          delete window.yamunanagarWardLayer;
+        }
+        if (window.yamunanagarClusterLayer) {
+          map.removeLayer(window.yamunanagarClusterLayer);
+          delete window.yamunanagarClusterLayer;
+        }
+        if (window.yamunanagarSectorLayer) {
+          map.removeLayer(window.yamunanagarSectorLayer);
+          delete window.yamunanagarSectorLayer;
+        }
+        if (window.rohtakSectorLayer) {
+          map.removeLayer(window.rohtakSectorLayer);
+          delete window.rohtakSectorLayer;
+        }
+        legendDiv.style.display = 'none';
+      }
+      if (lowerCity === 'rohtak') {
+        if (window.rohtakSectorLayer) {
+          map.removeLayer(window.rohtakSectorLayer);
+          delete window.rohtakSectorLayer;
+        }
+        if (window.faridabadSectorLayer) {
+          map.removeLayer(window.faridabadSectorLayer);
+          delete window.faridabadSectorLayer;
+        }
+        if (window.faridabadClusterLayer) {
+          map.removeLayer(window.faridabadClusterLayer);
+          delete window.faridabadClusterLayer;
+        }
+        if (window.yamunanagarWardLayer) {
+          map.removeLayer(window.yamunanagarWardLayer);
+          delete window.yamunanagarWardLayer;
+        }
+        if (window.yamunanagarClusterLayer) {
+          map.removeLayer(window.yamunanagarClusterLayer);
+          delete window.yamunanagarClusterLayer;
+        }
+        if (window.yamunanagarSectorLayer) {
+          map.removeLayer(window.yamunanagarSectorLayer);
+          delete window.yamunanagarSectorLayer;
+        }
+        if (window.panipatSectorLayer) {
+          map.removeLayer(window.panipatSectorLayer);
+          delete window.panipatSectorLayer;
+        }
+        legendDiv.style.display = 'none';
+      }
+    }
+
+    // Function to create folder and layers for a city
+    function createCityFolder(cityName) {
+      const lowerCity = cityName.toLowerCase();
+      // Role-based access check
+      if (role !== "all" && lowerCity !== role) {
+        console.log('Access denied for this district');
+        return;
+      }
+      if (createdFolders.has(lowerCity)) return;
+      createdFolders.add(lowerCity);
+
+      const folderDiv = document.createElement('div');
+      folderDiv.className = 'folder';
+      folderDiv.dataset.city = lowerCity;
+      folderDiv.innerHTML = `<h4><i class="fas fa-chevron-down folder-arrow"></i>${cityName} <button class="fit-btn" onclick="fitToCity('${lowerCity}')"><i class="fas fa-search-plus"></i> Zoom</button> <span class="folder-close">&times;</span></h4>`;
+
+      const closeBtn = folderDiv.querySelector('.folder-close');
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeCityFolder(lowerCity, folderDiv);
+      });
+
+      const h4 = folderDiv.querySelector('h4');
+      h4.addEventListener('click', function(e) {
+        if (e.target.closest('button') || e.target.closest('.folder-close')) return;
+        folderDiv.classList.toggle('collapsed');
+      });
+
+      const content = document.createElement('div');
+      content.className = 'folder-content';
+      folderDiv.appendChild(content);
+
+      // Dropdown for boundaries
+      const boundarySelect = document.createElement('select');
+      boundarySelect.className = 'boundary-select';
+      boundarySelect.innerHTML = `
+        <option value="">None</option>
+        <option value="sector">Sector Boundaries</option>
+        <option value="cluster">Cluster Boundaries</option>
+        <option value="ward">Ward Boundaries</option>
+      `;
+      boundarySelect.addEventListener('change', function() {
+        const value = this.value;
+        if (value === '') {
+          if (window.faridabadSectorLayer) {
+            map.removeLayer(window.faridabadSectorLayer);
+            delete window.faridabadSectorLayer;
+          }
+          if (window.faridabadClusterLayer) {
+            map.removeLayer(window.faridabadClusterLayer);
+            delete window.faridabadClusterLayer;
+          }
+          if (window.yamunanagarWardLayer) {
+            map.removeLayer(window.yamunanagarWardLayer);
+            delete window.yamunanagarWardLayer;
+          }
+          if (window.yamunanagarClusterLayer) {
+            map.removeLayer(window.yamunanagarClusterLayer);
+            delete window.yamunanagarClusterLayer;
+          }
+          if (window.yamunanagarSectorLayer) {
+            map.removeLayer(window.yamunanagarSectorLayer);
+            delete window.yamunanagarSectorLayer;
+          }
+          if (window.panipatSectorLayer) {
+            map.removeLayer(window.panipatSectorLayer);
+            delete window.panipatSectorLayer;
+          }
+          if (window.rohtakSectorLayer) {
+            map.removeLayer(window.rohtakSectorLayer);
+            delete window.rohtakSectorLayer;
+          }
+          legendDiv.style.display = 'none';
+          return;
+        }
+        if (value === 'sector' && lowerCity === 'faridabad') {
+          // Remove previous boundary layer if exists
+          if (window.faridabadSectorLayer) {
+            map.removeLayer(window.faridabadSectorLayer);
+          }
+          if (window.faridabadClusterLayer) {
+            map.removeLayer(window.faridabadClusterLayer);
+            delete window.faridabadClusterLayer;
+          }
+          if (window.yamunanagarWardLayer) {
+            map.removeLayer(window.yamunanagarWardLayer);
+            delete window.yamunanagarWardLayer;
+          }
+          if (window.yamunanagarClusterLayer) {
+            map.removeLayer(window.yamunanagarClusterLayer);
+            delete window.yamunanagarClusterLayer;
+          }
+          if (window.yamunanagarSectorLayer) {
+            map.removeLayer(window.yamunanagarSectorLayer);
+            delete window.yamunanagarSectorLayer;
+          }
+          if (window.panipatSectorLayer) {
+            map.removeLayer(window.panipatSectorLayer);
+            delete window.panipatSectorLayer;
+          }
+          if (window.rohtakSectorLayer) {
+            map.removeLayer(window.rohtakSectorLayer);
+            delete window.rohtakSectorLayer;
+          }
+          // Create new sector boundaries layer
+          const sectorSource = new ol.source.Vector({
+            url: 'data/Faridaba_Sec.geojson',
+            format: new ol.format.GeoJSON()
+          });
+          const sectorLayer = new ol.layer.Vector({
+            source: sectorSource,
+            style: getSectorStyle,
+            zIndex: 100,
+            visible: true
+          });
+          map.addLayer(sectorLayer);
+          window.faridabadSectorLayer = sectorLayer;
+          // Build and show legend
+          buildLegend();
+        } else if (value === 'cluster' && lowerCity === 'faridabad') {
+          // Remove previous boundary layer if exists
+          if (window.faridabadClusterLayer) {
+            map.removeLayer(window.faridabadClusterLayer);
+          }
+          if (window.faridabadSectorLayer) {
+            map.removeLayer(window.faridabadSectorLayer);
+            delete window.faridabadSectorLayer;
+          }
+          if (window.yamunanagarWardLayer) {
+            map.removeLayer(window.yamunanagarWardLayer);
+            delete window.yamunanagarWardLayer;
+          }
+          if (window.yamunanagarClusterLayer) {
+            map.removeLayer(window.yamunanagarClusterLayer);
+            delete window.yamunanagarClusterLayer;
+          }
+          if (window.yamunanagarSectorLayer) {
+            map.removeLayer(window.yamunanagarSectorLayer);
+            delete window.yamunanagarSectorLayer;
+          }
+          if (window.panipatSectorLayer) {
+            map.removeLayer(window.panipatSectorLayer);
+            delete window.panipatSectorLayer;
+          }
+          if (window.rohtakSectorLayer) {
+            map.removeLayer(window.rohtakSectorLayer);
+            delete window.rohtakSectorLayer;
+          }
+          // Create new cluster boundaries layer
+          const clusterSource = new ol.source.Vector({
+            url: 'data/Faridabad_Cluster.geojson',
+            format: new ol.format.GeoJSON()
+          });
+          const clusterLayer = new ol.layer.Vector({
+            source: clusterSource,
+            style: getClusterStyle,
+            zIndex: 100,
+            visible: true
+          });
+          map.addLayer(clusterLayer);
+          window.faridabadClusterLayer = clusterLayer;
+          // Build and show zone legend
+          buildZoneLegend();
+        } else if (value === 'sector' && lowerCity === 'yamunanagar') {
+          // Remove previous boundary layer if exists
+          if (window.yamunanagarSectorLayer) {
+            map.removeLayer(window.yamunanagarSectorLayer);
+          }
+          if (window.yamunanagarWardLayer) {
+            map.removeLayer(window.yamunanagarWardLayer);
+            delete window.yamunanagarWardLayer;
+          }
+          if (window.yamunanagarClusterLayer) {
+            map.removeLayer(window.yamunanagarClusterLayer);
+            delete window.yamunanagarClusterLayer;
+          }
+          if (window.faridabadSectorLayer) {
+            map.removeLayer(window.faridabadSectorLayer);
+            delete window.faridabadSectorLayer;
+          }
+          if (window.faridabadClusterLayer) {
+            map.removeLayer(window.faridabadClusterLayer);
+            delete window.faridabadClusterLayer;
+          }
+          if (window.panipatSectorLayer) {
+            map.removeLayer(window.panipatSectorLayer);
+            delete window.panipatSectorLayer;
+          }
+          if (window.rohtakSectorLayer) {
+            map.removeLayer(window.rohtakSectorLayer);
+            delete window.rohtakSectorLayer;
+          }
+          // Create new sector boundaries layer for Yamunanagar
+          const sectorSource = new ol.source.Vector({
+            url: 'data/YNR_SEC.geojson',
+            format: new ol.format.GeoJSON()
+          });
+          const sectorLayer = new ol.layer.Vector({
+            source: sectorSource,
+            style: getYamunanagarSectorStyle,
+            zIndex: 100,
+            visible: true
+          });
+          map.addLayer(sectorLayer);
+          window.yamunanagarSectorLayer = sectorLayer;
+          // Build and show legend
+          buildLegend();
+        } else if (value === 'cluster' && lowerCity === 'yamunanagar') {
+          // Remove previous boundary layer if exists
+          if (window.yamunanagarClusterLayer) {
+            map.removeLayer(window.yamunanagarClusterLayer);
+          }
+          if (window.yamunanagarWardLayer) {
+            map.removeLayer(window.yamunanagarWardLayer);
+            delete window.yamunanagarWardLayer;
+          }
+          if (window.yamunanagarSectorLayer) {
+            map.removeLayer(window.yamunanagarSectorLayer);
+            delete window.yamunanagarSectorLayer;
+          }
+          if (window.faridabadSectorLayer) {
+            map.removeLayer(window.faridabadSectorLayer);
+            delete window.faridabadSectorLayer;
+          }
+          if (window.faridabadClusterLayer) {
+            map.removeLayer(window.faridabadClusterLayer);
+            delete window.faridabadClusterLayer;
+          }
+          if (window.panipatSectorLayer) {
+            map.removeLayer(window.panipatSectorLayer);
+            delete window.panipatSectorLayer;
+          }
+          if (window.rohtakSectorLayer) {
+            map.removeLayer(window.rohtakSectorLayer);
+            delete window.rohtakSectorLayer;
+          }
+          // Create new cluster boundaries layer for Yamunanagar
+          const clusterSource = new ol.source.Vector({
+            url: 'data/YNR_CLUSTER.geojson',
+            format: new ol.format.GeoJSON()
+          });
+          const clusterLayer = new ol.layer.Vector({
+            source: clusterSource,
+            style: getYamunanagarClusterStyle,
+            zIndex: 100,
+            visible: true
+          });
+          map.addLayer(clusterLayer);
+          window.yamunanagarClusterLayer = clusterLayer;
+          // Build and show Yamunanagar zone legend
+          buildYamunanagarZoneLegend();
+        } else if (value === 'ward' && lowerCity === 'yamunanagar') {
+          // Remove previous boundary layers if exist
+          if (window.yamunanagarWardLayer) {
+            map.removeLayer(window.yamunanagarWardLayer);
+          }
+          if (window.yamunanagarClusterLayer) {
+            map.removeLayer(window.yamunanagarClusterLayer);
+            delete window.yamunanagarClusterLayer;
+          }
+          if (window.yamunanagarSectorLayer) {
+            map.removeLayer(window.yamunanagarSectorLayer);
+            delete window.yamunanagarSectorLayer;
+          }
+          if (window.faridabadSectorLayer) {
+            map.removeLayer(window.faridabadSectorLayer);
+            delete window.faridabadSectorLayer;
+          }
+          if (window.faridabadClusterLayer) {
+            map.removeLayer(window.faridabadClusterLayer);
+            delete window.faridabadClusterLayer;
+          }
+          if (window.panipatSectorLayer) {
+            map.removeLayer(window.panipatSectorLayer);
+            delete window.panipatSectorLayer;
+          }
+          if (window.rohtakSectorLayer) {
+            map.removeLayer(window.rohtakSectorLayer);
+            delete window.rohtakSectorLayer;
+          }
+          // Create new ward boundaries layer
+          const wardSource = new ol.source.Vector({
+            url: 'data/YNR_WARD.geojson',
+            format: new ol.format.GeoJSON()
+          });
+          const wardLayer = new ol.layer.Vector({
+            source: wardSource,
+            style: getWardStyle,
+            zIndex: 100,
+            visible: true
+          });
+          map.addLayer(wardLayer);
+          window.yamunanagarWardLayer = wardLayer;
+          // No legend for wards
+          legendDiv.style.display = 'none';
+        } else if (value === 'sector' && lowerCity === 'panipat') {
+          // Remove previous boundary layer if exists
+          if (window.panipatSectorLayer) {
+            map.removeLayer(window.panipatSectorLayer);
+          }
+          if (window.faridabadSectorLayer) {
+            map.removeLayer(window.faridabadSectorLayer);
+            delete window.faridabadSectorLayer;
+          }
+          if (window.faridabadClusterLayer) {
+            map.removeLayer(window.faridabadClusterLayer);
+            delete window.faridabadClusterLayer;
+          }
+          if (window.yamunanagarWardLayer) {
+            map.removeLayer(window.yamunanagarWardLayer);
+            delete window.yamunanagarWardLayer;
+          }
+          if (window.yamunanagarClusterLayer) {
+            map.removeLayer(window.yamunanagarClusterLayer);
+            delete window.yamunanagarClusterLayer;
+          }
+          if (window.yamunanagarSectorLayer) {
+            map.removeLayer(window.yamunanagarSectorLayer);
+            delete window.yamunanagarSectorLayer;
+          }
+          if (window.rohtakSectorLayer) {
+            map.removeLayer(window.rohtakSectorLayer);
+            delete window.rohtakSectorLayer;
+          }
+          // Create new sector boundaries layer for Panipat
+          const sectorSource = new ol.source.Vector({
+            url: 'data/panipat_sec.geojson',
+            format: new ol.format.GeoJSON()
+          });
+          const sectorLayer = new ol.layer.Vector({
+            source: sectorSource,
+            style: getSectorStyle,
+            zIndex: 100,
+            visible: true
+          });
+          map.addLayer(sectorLayer);
+          window.panipatSectorLayer = sectorLayer;
+          // Build and show legend
+          buildLegend();
+        } else if (value === 'sector' && lowerCity === 'rohtak') {
+          // Remove previous boundary layer if exists
+          if (window.rohtakSectorLayer) {
+            map.removeLayer(window.rohtakSectorLayer);
+          }
+          if (window.faridabadSectorLayer) {
+            map.removeLayer(window.faridabadSectorLayer);
+            delete window.faridabadSectorLayer;
+          }
+          if (window.faridabadClusterLayer) {
+            map.removeLayer(window.faridabadClusterLayer);
+            delete window.faridabadClusterLayer;
+          }
+          if (window.yamunanagarWardLayer) {
+            map.removeLayer(window.yamunanagarWardLayer);
+            delete window.yamunanagarWardLayer;
+          }
+          if (window.yamunanagarClusterLayer) {
+            map.removeLayer(window.yamunanagarClusterLayer);
+            delete window.yamunanagarClusterLayer;
+          }
+          if (window.yamunanagarSectorLayer) {
+            map.removeLayer(window.yamunanagarSectorLayer);
+            delete window.yamunanagarSectorLayer;
+          }
+          if (window.panipatSectorLayer) {
+            map.removeLayer(window.panipatSectorLayer);
+            delete window.panipatSectorLayer;
+          }
+          // Create new sector boundaries layer for Rohtak
+          const sectorSource = new ol.source.Vector({
+            url: 'data/rohtak_sec.geojson',
+            format: new ol.format.GeoJSON()
+          });
+          const sectorLayer = new ol.layer.Vector({
+            source: sectorSource,
+            style: getRohtakSectorStyle,
+            zIndex: 100,
+            visible: true
+          });
+          map.addLayer(sectorLayer);
+          window.rohtakSectorLayer = sectorLayer;
+          // Build and show legend
+          buildLegend();
+        } else {
+          console.log(`Selected boundary for ${cityName}: ${value}`);
+        }
+      });
+      content.appendChild(boundarySelect);
+
+      const categories = ['red', 'green', 'orange', 'white'];
+      const labels = {
+        red: 'Red',
+        green: 'Green',
+        orange: 'Orange',
+        white: 'White'
+      };
+      const iconColors = {
+        red: 'red',
+        green: 'green',
+        orange: 'orange',
+        white: '#ddd'
+      };
+
+      cityToLayers[lowerCity] = [];
+
+      if (lowerCity === 'faridabad') {
+        if (faridabadError) {
+          const errorDiv = document.createElement('div');
+          errorDiv.textContent = 'Error loading Faridabad data. Check console for details.';
+          errorDiv.style.color = 'red';
+          errorDiv.style.fontSize = '12px';
+          content.appendChild(errorDiv);
+        } else if (!faridabadLoaded) {
+          const loadingDiv = document.createElement('div');
+          loadingDiv.innerHTML = '<i class="fas fa-spinner fa-spin loading-spinner"></i>Loading industries...';
+          loadingDiv.style.color = '#666';
+          loadingDiv.style.fontSize = '12px';
+          content.appendChild(loadingDiv);
+          // Poll for loaded
+          const interval = setInterval(() => {
+            if (faridabadLoaded) {
+              clearInterval(interval);
+              const loadingEl = content.querySelector('div[style*="Loading"]');
+              if (loadingEl) loadingEl.remove();
+              renderFaridabadLayers(content, categories, labels, iconColors, lowerCity);
+            }
+          }, 100);
+          // Fallback after 5s
+          setTimeout(() => {
+            clearInterval(interval);
+            const loadingEl = content.querySelector('div[style*="Loading"]');
+            if (loadingEl) loadingEl.remove();
+            if (!faridabadLoaded) {
+              faridabadError = true;
+              const errorDiv = document.createElement('div');
+              errorDiv.textContent = 'Timeout loading data. Check console.';
+              errorDiv.style.color = 'red';
+              errorDiv.style.fontSize = '12px';
+              content.appendChild(errorDiv);
+            }
+          }, 5000);
+        } else {
+          renderFaridabadLayers(content, categories, labels, iconColors, lowerCity);
+        }
+      } else if (lowerCity === 'rohtak') {
+        if (rohtakError) {
+          const errorDiv = document.createElement('div');
+          errorDiv.textContent = 'Error loading Rohtak data. Check console for details.';
+          errorDiv.style.color = 'red';
+          errorDiv.style.fontSize = '12px';
+          content.appendChild(errorDiv);
+        } else if (!rohtakLoaded) {
+          const loadingDiv = document.createElement('div');
+          loadingDiv.innerHTML = '<i class="fas fa-spinner fa-spin loading-spinner"></i>Loading industries...';
+          loadingDiv.style.color = '#666';
+          loadingDiv.style.fontSize = '12px';
+          content.appendChild(loadingDiv);
+          // Poll for loaded
+          const interval = setInterval(() => {
+            if (rohtakLoaded) {
+              clearInterval(interval);
+              const loadingEl = content.querySelector('div[style*="Loading"]');
+              if (loadingEl) loadingEl.remove();
+              renderRohtakLayers(content, categories, labels, iconColors, lowerCity);
+            }
+          }, 100);
+          // Fallback after 5s
+          setTimeout(() => {
+            clearInterval(interval);
+            const loadingEl = content.querySelector('div[style*="Loading"]');
+            if (loadingEl) loadingEl.remove();
+            if (!rohtakLoaded) {
+              rohtakError = true;
+              const errorDiv = document.createElement('div');
+              errorDiv.textContent = 'Timeout loading data. Check console.';
+              errorDiv.style.color = 'red';
+              errorDiv.style.fontSize = '12px';
+              content.appendChild(errorDiv);
+            }
+          }, 5000);
+        } else {
+          renderRohtakLayers(content, categories, labels, iconColors, lowerCity);
+        }
+      } else if (lowerCity === 'yamunanagar') {
+        if (ynrError) {
+          const errorDiv = document.createElement('div');
+          errorDiv.textContent = 'Error loading Yamunanagar data. Check console for details.';
+          errorDiv.style.color = 'red';
+          errorDiv.style.fontSize = '12px';
+          content.appendChild(errorDiv);
+        } else if (!ynrLoaded) {
+          const loadingDiv = document.createElement('div');
+          loadingDiv.innerHTML = '<i class="fas fa-spinner fa-spin loading-spinner"></i>Loading industries...';
+          loadingDiv.style.color = '#666';
+          loadingDiv.style.fontSize = '12px';
+          content.appendChild(loadingDiv);
+          // Poll for loaded
+          const interval = setInterval(() => {
+            if (ynrLoaded) {
+              clearInterval(interval);
+              const loadingEl = content.querySelector('div[style*="Loading"]');
+              if (loadingEl) loadingEl.remove();
+              renderYamunanagarLayers(content, categories, labels, iconColors, lowerCity);
+            }
+          }, 100);
+          // Fallback after 5s
+          setTimeout(() => {
+            clearInterval(interval);
+            const loadingEl = content.querySelector('div[style*="Loading"]');
+            if (loadingEl) loadingEl.remove();
+            if (!ynrLoaded) {
+              ynrError = true;
+              const errorDiv = document.createElement('div');
+              errorDiv.textContent = 'Timeout loading data. Check console.';
+              errorDiv.style.color = 'red';
+              errorDiv.style.fontSize = '12px';
+              content.appendChild(errorDiv);
+            }
+          }, 5000);
+        } else {
+          renderYamunanagarLayers(content, categories, labels, iconColors, lowerCity);
+        }
+      } else if (lowerCity === 'panipat') {
+        if (panipatError) {
+          const errorDiv = document.createElement('div');
+          errorDiv.textContent = 'Error loading Panipat data. Check console for details.';
+          errorDiv.style.color = 'red';
+          errorDiv.style.fontSize = '12px';
+          content.appendChild(errorDiv);
+        } else if (!panipatLoaded) {
+          const loadingDiv = document.createElement('div');
+          loadingDiv.innerHTML = '<i class="fas fa-spinner fa-spin loading-spinner"></i>Loading industries...';
+          loadingDiv.style.color = '#666';
+          loadingDiv.style.fontSize = '12px';
+          content.appendChild(loadingDiv);
+          // Poll for loaded
+          const interval = setInterval(() => {
+            if (panipatLoaded) {
+              clearInterval(interval);
+              const loadingEl = content.querySelector('div[style*="Loading"]');
+              if (loadingEl) loadingEl.remove();
+              renderPanipatLayers(content, categories, labels, iconColors, lowerCity);
+            }
+          }, 100);
+          // Fallback after 5s
+          setTimeout(() => {
+            clearInterval(interval);
+            const loadingEl = content.querySelector('div[style*="Loading"]');
+            if (loadingEl) loadingEl.remove();
+            if (!panipatLoaded) {
+              panipatError = true;
+              const errorDiv = document.createElement('div');
+              errorDiv.textContent = 'Timeout loading data. Check console.';
+              errorDiv.style.color = 'red';
+              errorDiv.style.fontSize = '12px';
+              content.appendChild(errorDiv);
+            }
+          }, 5000);
+        } else {
+          renderPanipatLayers(content, categories, labels, iconColors, lowerCity);
+        }
+      } else {
+        const data = industrialData[lowerCity];
+        if (!data) return;
+        const counts = {
+          total: data.red.length + data.green.length + data.orange.length + data.white.length,
+          red: data.red.length,
+          green: data.green.length,
+          orange: data.orange.length,
+          white: data.white.length
+        };
+
+        const totalText = document.createElement('div');
+        totalText.className = 'total-text';
+        totalText.textContent = `Total No of Industries: ${counts.total}`;
+        content.appendChild(totalText);
+
+        categories.forEach(cat => {
+          const count = counts[cat];
+          const labelEl = document.createElement('label');
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = false;
+          checkbox.dataset.city = lowerCity;
+          checkbox.dataset.cat = cat;
+          checkbox.addEventListener('change', function() {
+            const layerKey = `${lowerCity}-${cat}`;
+            if (industrialLayers[layerKey]) {
+              industrialLayers[layerKey].setVisible(this.checked);
+            }
+          });
+          const icon = document.createElement('i');
+          icon.className = 'fas fa-industry layer-icon';
+          icon.style.color = iconColors[cat];
+          labelEl.appendChild(checkbox);
+          labelEl.appendChild(icon);
+          labelEl.appendChild(document.createTextNode(`${labels[cat]} (${count} industries)`));
+          content.appendChild(labelEl);
+
+          // Create OL vector layer
+          const features = [];
+          data[cat].forEach(pointData => {
+            const feature = new ol.Feature({
+              geometry: new ol.geom.Point(ol.proj.fromLonLat(pointData.coords)),
+              ...pointData.properties
+            });
+            const pointColor = pointData.color === 'white' ? '#f0f0f0' : pointData.color;
+            feature.setStyle(new ol.style.Style({
+              image: new ol.style.Circle({
+                radius: 4,
+                fill: new ol.style.Fill({color: pointColor}),
+                stroke: new ol.style.Stroke({color: 'black', width: 2})
+              })
+            }));
+            const p = feature.getProperties();
+            const cname = p['Company Na'] || p['company na'] || p['Company'] || p['NAME'] || p.name || p['Company_na'] || pointData.properties.name || '';
+            feature.set('searchName', cname ? cname.toString().trim() : '');
+            feature.set('category', cat);
+            features.push(feature);
+          });
+
+          const vectorSource = new ol.source.Vector({features: features});
+          const vectorLayer = new ol.layer.Vector({
+            source: vectorSource,
+            visible: false,
+            zIndex: 200
+          });
+          map.addLayer(vectorLayer);
+          industrialLayers[`${lowerCity}-${cat}`] = vectorLayer;
+          cityToLayers[lowerCity].push(vectorLayer);
+        });
+      }
+
+      industrialLayersDiv.appendChild(folderDiv);
+    }
+
+    function renderFaridabadLayers(content, categories, labels, iconColors, lowerCity) {
+      const counts = {
+        red: faridabadGrouped.red.length,
+        green: faridabadGrouped.green.length,
+        orange: faridabadGrouped.orange.length,
+        white: faridabadGrouped.white.length
+      };
+      const total = counts.red + counts.green + counts.orange + counts.white;
+
+      const totalText = document.createElement('div');
+      totalText.className = 'total-text';
+      totalText.textContent = `Total No of Industries: ${total}`;
+      content.appendChild(totalText);
+
+      categories.forEach(cat => {
+        const count = counts[cat];
+        const labelEl = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = false;
+        checkbox.dataset.city = 'faridabad';
+        checkbox.dataset.cat = cat;
+        checkbox.addEventListener('change', function() {
+          const layerKey = `faridabad-${cat}`;
+          if (industrialLayers[layerKey]) {
+            industrialLayers[layerKey].setVisible(this.checked);
+          }
+        });
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-industry layer-icon';
+        icon.style.color = iconColors[cat];
+        labelEl.appendChild(checkbox);
+        labelEl.appendChild(icon);
+        labelEl.appendChild(document.createTextNode(`${labels[cat]} (${count} industries)`));
+        content.appendChild(labelEl);
+
+        const vectorSource = new ol.source.Vector({features: faridabadGrouped[cat]});
+        const vectorLayer = new ol.layer.Vector({
+          source: vectorSource,
+          visible: false,
+          zIndex: 200
+        });
+        map.addLayer(vectorLayer);
+        industrialLayers[`faridabad-${cat}`] = vectorLayer;
+        cityToLayers[lowerCity].push(vectorLayer);
+      });
+    }
+
+    function renderRohtakLayers(content, categories, labels, iconColors, lowerCity) {
+      const counts = {
+        red: rohtakGrouped.red.length,
+        green: rohtakGrouped.green.length,
+        orange: rohtakGrouped.orange.length,
+        white: rohtakGrouped.white.length
+      };
+      const total = counts.red + counts.green + counts.orange + counts.white;
+
+      const totalText = document.createElement('div');
+      totalText.className = 'total-text';
+      totalText.textContent = `Total No of Industries: ${total}`;
+      content.appendChild(totalText);
+
+      categories.forEach(cat => {
+        const count = counts[cat];
+        const labelEl = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = false;
+        checkbox.dataset.city = lowerCity;
+        checkbox.dataset.cat = cat;
+        checkbox.addEventListener('change', function() {
+          const layerKey = `${lowerCity}-${cat}`;
+          if (industrialLayers[layerKey]) {
+            industrialLayers[layerKey].setVisible(this.checked);
+          }
+        });
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-industry layer-icon';
+        icon.style.color = iconColors[cat];
+        labelEl.appendChild(checkbox);
+        labelEl.appendChild(icon);
+        labelEl.appendChild(document.createTextNode(`${labels[cat]} (${count} industries)`));
+        content.appendChild(labelEl);
+
+        const vectorSource = new ol.source.Vector({features: rohtakGrouped[cat]});
+        const vectorLayer = new ol.layer.Vector({
+          source: vectorSource,
+          visible: false,
+          zIndex: 200
+        });
+        map.addLayer(vectorLayer);
+        industrialLayers[`${lowerCity}-${cat}`] = vectorLayer;
+        cityToLayers[lowerCity].push(vectorLayer);
+      });
+    }
+
+    function renderYamunanagarLayers(content, categories, labels, iconColors, lowerCity) {
+      const counts = {
+        red: ynrGrouped.red.length,
+        green: ynrGrouped.green.length,
+        orange: ynrGrouped.orange.length,
+        white: ynrGrouped.white.length
+      };
+      const total = counts.red + counts.green + counts.orange + counts.white;
+
+      const totalText = document.createElement('div');
+      totalText.className = 'total-text';
+      totalText.textContent = `Total No of Industries: ${total}`;
+      content.appendChild(totalText);
+
+      categories.forEach(cat => {
+        const count = counts[cat];
+        const labelEl = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = false;
+        checkbox.dataset.city = lowerCity;
+        checkbox.dataset.cat = cat;
+        checkbox.addEventListener('change', function() {
+          const layerKey = `${lowerCity}-${cat}`;
+          if (industrialLayers[layerKey]) {
+            industrialLayers[layerKey].setVisible(this.checked);
+          }
+        });
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-industry layer-icon';
+        icon.style.color = iconColors[cat];
+        labelEl.appendChild(checkbox);
+        labelEl.appendChild(icon);
+        labelEl.appendChild(document.createTextNode(`${labels[cat]} (${count} industries)`));
+        content.appendChild(labelEl);
+
+        const vectorSource = new ol.source.Vector({features: ynrGrouped[cat]});
+        const vectorLayer = new ol.layer.Vector({
+          source: vectorSource,
+          visible: false,
+          zIndex: 200
+        });
+        map.addLayer(vectorLayer);
+        industrialLayers[`${lowerCity}-${cat}`] = vectorLayer;
+        cityToLayers[lowerCity].push(vectorLayer);
+      });
+    }
+
+    function renderPanipatLayers(content, categories, labels, iconColors, lowerCity) {
+      const counts = {
+        red: panipatGrouped.red.length,
+        green: panipatGrouped.green.length,
+        orange: panipatGrouped.orange.length,
+        white: panipatGrouped.white.length
+      };
+      const total = counts.red + counts.green + counts.orange + counts.white;
+
+      const totalText = document.createElement('div');
+      totalText.className = 'total-text';
+      totalText.textContent = `Total No of Industries: ${total}`;
+      content.appendChild(totalText);
+
+      categories.forEach(cat => {
+        const count = counts[cat];
+        const labelEl = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = false;
+        checkbox.dataset.city = lowerCity;
+        checkbox.dataset.cat = cat;
+        checkbox.addEventListener('change', function() {
+          const layerKey = `${lowerCity}-${cat}`;
+          if (industrialLayers[layerKey]) {
+            industrialLayers[layerKey].setVisible(this.checked);
+          }
+        });
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-industry layer-icon';
+        icon.style.color = iconColors[cat];
+        labelEl.appendChild(checkbox);
+        labelEl.appendChild(icon);
+        labelEl.appendChild(document.createTextNode(`${labels[cat]} (${count} industries)`));
+        content.appendChild(labelEl);
+
+        const vectorSource = new ol.source.Vector({features: panipatGrouped[cat]});
+        const vectorLayer = new ol.layer.Vector({
+          source: vectorSource,
+          visible: false,
+          zIndex: 200
+        });
+        map.addLayer(vectorLayer);
+        industrialLayers[`${lowerCity}-${cat}`] = vectorLayer;
+        cityToLayers[lowerCity].push(vectorLayer);
+      });
+    }
+
+    // Base map selection
+    function updateBaseMap() {
+      const selected = baseMapSelect.value;
+      googleLayer.setVisible(selected === 'google');
+      googleSatLayer.setVisible(selected === 'google_sat');
+      osmLayer.setVisible(selected === 'osm');
+      satLayer.setVisible(selected === 'sat');
+      boundaryLayer.setVisible(true); // Ensure boundary always visible
+    }
+
+    baseMapSelect.addEventListener('change', updateBaseMap);
+
+    // Initial update
+    updateBaseMap();
+
+    // Collapse toggle
+    function toggleSidebar() {
+      document.getElementById('layout').classList.toggle('collapsed');
+    }
+
+    // Legend toggle
+    function toggleLegend() {
+      const isVisible = legendDiv.style.display === 'block';
+      legendDiv.style.display = isVisible ? 'none' : 'block';
+    }
+
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const tabId = this.dataset.tab;
+        // Remove active class from all tabs and panes
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        // Add active to selected
+        this.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+      });
+    });
+
+    // Chart type change listener
+    chartTypeSelect.addEventListener('change', function() {
+      if (currentReportDistt) {
+        populateReports(currentReportDistt);
+      }
+    });
+
+    // Make district names clickable
+    document.querySelectorAll('.stats-section h4').forEach(h4 => {
+      h4.addEventListener('click', function() {
+        const distt = this.textContent.trim();
+        // Show reports tab button
+        reportsTabBtn.style.display = '';
+        // Switch to reports tab
+        document.querySelector('[data-tab="reports"]').click();
+        // Zoom to district
+        const disttToCoord = {
+          'Rohtak Distt': [76.6066, 28.8945],
+          'Yamunanagar Distt': [77.2795, 30.1278],
+          'Faridabad Distt': [77.3001, 28.4089],
+          'Panipat Distt': [76.9707, 29.3909]
+        };
+        if (disttToCoord[distt]) {
+          map.getView().setCenter(ol.proj.fromLonLat(disttToCoord[distt]));
+          map.getView().setZoom(11);
+        }
+        // Populate reports
+        populateReports(distt);
+      });
+    });
+
+    // Function to populate reports for a district
+    function populateReports(distt) {
+      currentReportDistt = distt;
+      const content = reportsContent;
+      const statsData = {
+        'Rohtak Distt': {total: 100, conforming: 80, non: 20},
+        'Yamunanagar Distt': {total: 150, conforming: 120, non: 30},
+        'Faridabad Distt': {total: 21460, conforming: 5991, non: 15469},
+        'Panipat Distt': {total: 120, conforming: 95, non: 25}
+      };
+      const data = statsData[distt] || {total: 0, conforming: 0, non: 0};
+      const disttName = distt.replace(' Distt', '');
+      const counts = getCategoryCounts(distt);
+      const total = Object.values(counts).reduce((a, b) => a + b, 0);
+
+      // Clear previous content
+      reportsContent.innerHTML = '';
+
+      // Add downloads for Faridabad
+     /* if (distt.includes('Faridabad')) {
+        const downloadsDiv = document.createElement('div');
+        downloadsDiv.innerHTML = `
+          <h4 style="color: #1e3a8a; margin-bottom: 12px;">Available Reports</h4>
+          <a href="data/Reports/FARIDABAD SUMMARIZED.xlsx" class="report-download" download="FARIDABAD SUMMARIZED.xlsx">
+            <i class="fa-solid fa-file"></i> Faridabad Summarized Report
+          </a>
+          <a href="data/Reports/saroorpur data.xlsx" class="report-download" download="saroorpur data.xlsx">
+            <i class="fa-solid fa-file"></i> Saroorpur Data Report
+          </a>
+        `;
+        reportsContent.appendChild(downloadsDiv);
+      }
+
+      // Add downloads for Yamunanagar
+      if (distt.includes('Yamunanagar')) {
+        const downloadsDiv = document.createElement('div');
+        downloadsDiv.innerHTML = `
+          <h4 style="color: #1e3a8a; margin-bottom: 12px;">Available Reports</h4>
+          <a href="data/Reports/YAMUNANAGAR SUMMARIZED SHEET.xlsx" class="report-download" download="YAMUNANAGAR SUMMARIZED SHEET.xlsx">
+            <i class="fa-solid fa-file"></i> Yamunanagar Summarized Report
+          </a>
+        `;
+        reportsContent.appendChild(downloadsDiv);
+      }
+
+      // Add downloads for Panipat
+     /* if (distt.includes('Panipat')) {
+        const downloadsDiv = document.createElement('div');
+        downloadsDiv.innerHTML = `
+          <h4 style="color: #1e3a8a; margin-bottom: 12px;">Available Reports</h4>
+          <a href="data/Reports/PANIPAT SUMMARIZED SHEET.xlsx" class="report-download" download="PANIPAT SUMMARIZED SHEET.xlsx">
+            <i class="fa-solid fa-file"></i> Panipat Summarized Report
+          </a>
+        `;
+        reportsContent.appendChild(downloadsDiv);
+      }
+
+      // Add downloads for Rohtak
+     /* if (distt.includes('Rohtak')) {
+        const downloadsDiv = document.createElement('div');
+        downloadsDiv.innerHTML = `
+          <h4 style="color: #1e3a8a; margin-bottom: 12px;">Available Reports</h4>
+          <a href="data/Reports/UPDATED ROHTAK SUMMARY.xlsx" class="report-download" download="UPDATED ROHTAK SUMMARY.xlsx">
+            <i class="fa-solid fa-file"></i> Rohtak Summary Report
+          </a>
+        `;
+        reportsContent.appendChild(downloadsDiv);
+      }*/
+
+      // Remove existing chart window
+      const existingChartWindow = document.getElementById('chartWindow');
+      if (existingChartWindow) {
+        existingChartWindow.remove();
+      }
+
+      const chartWindow = document.createElement('div');
+      chartWindow.id = 'chartWindow';
+      chartWindow.style.cssText = `
+        position: absolute;
+        background: white;
+        padding: 10px;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 1003;
+        display: block;
+        max-width: 400px;
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        top: 100px;
+        left: 100px;
+      `;
+      chartWindow.innerHTML = `
+        <div id="chart-header">
+          <h3>${distt} - Industries by Category</h3>
+          <button id="chart-close">&times;</button>
+        </div>
+        <div id="chart-content" class="popup-content">
+          <canvas id="chartCanvas" width="300" height="300"></canvas>
+          <br>
+          <button id="exportPdf">Export as PDF</button>
+        </div>
+      `;
+      document.body.appendChild(chartWindow);
+
+      makeDraggable(chartWindow);
+
+      const chartClose = chartWindow.querySelector('#chart-close');
+      chartClose.addEventListener('click', () => {
+        chartWindow.remove();
+      });
+
+      const chartType = chartTypeSelect.value;
+      const ctx = chartWindow.querySelector('#chartCanvas').getContext('2d');
+      if (window.reportsChart) {
+        window.reportsChart.destroy();
+      }
+      const config = {
+        type: chartType,
+        data: {
+          labels: ['Red', 'Green', 'Orange', 'White'],
+          datasets: [{
+            data: [counts.red, counts.green, counts.orange, counts.white],
+            backgroundColor: ['red', 'green', 'orange', '#f0f0f0']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'top',
+            },
+            title: {
+              display: true,
+              text: 'Industries by Unit Category'
+            }
+          }
+        }
+      };
+      window.reportsChart = new Chart(ctx, config);
+
+      // Add legend with counts below the chart
+      const legendDiv = document.createElement('div');
+      legendDiv.style.cssText = 'margin-top: 10px; text-align: left; font-size: 12px; padding: 10px; background: #f8fafc; border-radius: 4px;';
+      legendDiv.innerHTML = `
+        <h4 style="color: #1e3a8a; margin-bottom: 8px; font-size: 14px;">Industries by Category</h4>
+        <p><strong>Total No of Industries:</strong> ${total}</p>
+        <p><strong>Red:</strong> ${counts.red}</p>
+        <p><strong>Green:</strong> ${counts.green}</p>
+        <p><strong>Orange:</strong> ${counts.orange}</p>
+        <p><strong>White:</strong> ${counts.white}</p>
+      `;
+      const chartContent = chartWindow.querySelector('#chart-content');
+      const exportBtn = chartWindow.querySelector('#exportPdf');
+      chartContent.insertBefore(legendDiv, exportBtn);
+
+      const exportBtnEvent = chartWindow.querySelector('#exportPdf');
+      exportBtnEvent.addEventListener('click', () => {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({unit: 'mm', format: 'a4', compress: true});
+        const canvas = chartWindow.querySelector('#chartCanvas');
+
+        // High quality export: temporarily scale canvas for higher resolution
+        const scale = 2;
+        const originalWidth = canvas.width;
+        const originalHeight = canvas.height;
+        canvas.width = originalWidth * scale;
+        canvas.height = originalHeight * scale;
+        window.reportsChart.resize(canvas.width, canvas.height);
+        window.reportsChart.update('none'); // Force redraw at new size
+
+        const imgData = canvas.toDataURL('image/png', 1.0);
+
+        // Resize back
+        canvas.width = originalWidth;
+        canvas.height = originalHeight;
+        window.reportsChart.resize(originalWidth, originalHeight);
+        window.reportsChart.update('none');
+
+        // Add district header
+        pdf.setFontSize(18);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(distt, 105, 10, { align: 'center' });
+
+        // Add chart image (scaled to fit page, high res)
+        const chartWidth = 180;
+        const chartHeight = 140;
+        pdf.addImage(imgData, 'PNG', 10, 20, chartWidth, chartHeight);
+
+        // Add legend with values below chart
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('Legend:', 10, 175);
+
+        const legendData = [
+          { label: 'Red', count: counts.red, color: [255, 0, 0] },
+          { label: 'Green', count: counts.green, color: [0, 255, 0] },
+          { label: 'Orange', count: counts.orange, color: [255, 165, 0] },
+          { label: 'White', count: counts.white, color: [240, 240, 240] }
+        ];
+
+        legendData.forEach((item, index) => {
+          const y = 185 + (index * 8);
+          // Draw colored square
+          pdf.setFillColor(...item.color);
+          pdf.rect(10, y - 3, 4, 4, 'F');
+          // Draw text
+          pdf.setTextColor(0, 0, 0);
+          pdf.text(`${item.label}: ${item.count}_Industries`, 18, y);
+        });
+
+        pdf.save(`${disttName}_chart.pdf`);
+      });
+    }
+
+    // Popup functions
+    function showPopup(coordinate, properties) {
+      let tableHTML = '<table><tbody>';
+      let headerText = 'Feature Details';
+
+      if (properties.NAME !== undefined && properties.Zone !== undefined) {
+        // Faridabad cluster boundary
+        headerText = `Name ${properties.NAME}`;
+        tableHTML += `<tr><td>Name</td><td>${properties.NAME}</td></tr>`;
+        tableHTML += `<tr><td>Zone</td><td>${properties.Zone}</td></tr>`;
+      } else if (properties.CLUSTER !== undefined && properties.CATEGORY !== undefined && properties.SECTOR === undefined) {
+        // Yamunanagar cluster boundary
+        headerText = `Cluster ${properties.CLUSTER}`;
+        tableHTML += `<tr><td>Cluster</td><td>${properties.CLUSTER}</td></tr>`;
+        tableHTML += `<tr><td>Category</td><td>${properties.CATEGORY}</td></tr>`;
+      } else if (properties.SECTOR !== undefined && properties.CATEGORY !== undefined) {
+        // Yamunanagar sector boundary
+        headerText = `Sector ${properties.SECTOR}`;
+        tableHTML += `<tr><td>Sector</td><td>${properties.SECTOR}</td></tr>`;
+        tableHTML += `<tr><td>Category</td><td>${properties.CATEGORY}</td></tr>`;
+      } else if (properties.SECTOR_NO !== undefined) {
+        // Sector boundary
+        headerText = `Sector ${properties.SECTOR_NO}`;
+        tableHTML += `<tr><td>Sector</td><td>${properties.SECTOR_NO}</td></tr>`;
+        const possibleKeys = ['LANDUSE_DE', 'CATEGORY', 'Zone'];
+        possibleKeys.forEach(key => {
+          if (properties[key] !== undefined && properties[key] !== null && properties[key] !== '') {
+            tableHTML += `<tr><td>${key}</td><td>${properties[key]}</td></tr>`;
+          }
+        });
+      } else if (properties.WARD_NO !== undefined) {
+        // Ward boundary
+        headerText = `Ward ${properties.WARD_NO}`;
+        const keys = ['WARD_NO'];
+        keys.forEach(key => {
+          const value = properties[key];
+          if (value !== null && value !== undefined && value !== '') {
+            tableHTML += `<tr><td>${key}</td><td>${value}</td></tr>`;
+          }
+        });
+      } else {
+        // Point data or other features
+        const companyName = properties.name || properties['NAME OF UNIT'] || properties['NAME'] || properties['Company_na'] || 'Industry';
+        headerText = `Company: ${companyName}`;
+        for (let key in properties) {
+          if (key !== 'geometry' && properties[key] !== null && properties[key] !== undefined && properties[key] !== '') {
+            tableHTML += `<tr><td>${key}</td><td>${properties[key]}</td></tr>`;
+          }
+        }
+      }
+      tableHTML += '</tbody></table>';
+
+      popupHeaderH3.textContent = headerText;
+      popupContent.innerHTML = tableHTML;
+
+      // Handle expand/collapse
+      const table = popupContent.querySelector('table');
+      const tbody = table.querySelector('tbody');
+      const rows = tbody.querySelectorAll('tr');
+      if (rows.length > 5) {
+        for (let i = 5; i < rows.length; i++) {
+          rows[i].classList.add('hidden-row');
+        }
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'toggle-more';
+        toggleBtn.textContent = 'Show More';
+        toggleBtn.onclick = function() {
+          const hiddenRows = tbody.querySelectorAll('.hidden-row');
+          if (hiddenRows.length > 0) {
+            hiddenRows.forEach(row => row.style.display = 'table-row');
+            toggleBtn.textContent = 'Show Less';
+          } else {
+            for (let i = 5; i < rows.length; i++) {
+              rows[i].style.display = 'none';
+            }
+            toggleBtn.textContent = 'Show More';
+          }
+        };
+        popupContent.appendChild(toggleBtn);
+      }
+
+      popup.style.display = 'block';
+      const pixel = map.getPixelFromCoordinate(coordinate);
+      popup.style.left = (pixel[0] + 10) + 'px';
+      popup.style.top = (pixel[1] - 10) + 'px';
+    }
+
+    function hidePopup() {
+      popup.style.display = 'none';
+    }
+
+    // Map click event for popup
+    map.on('click', function(evt) {
+      const coordinate = evt.coordinate;
+      const pixel = map.getPixelFromCoordinate(coordinate);
+      const features = [];
+
+      map.forEachFeatureAtPixel(pixel, function(feature) {
+        features.push(feature);
+      });
+
+      if (features.length > 0) {
+        const feature = features[0];
+        const properties = feature.getProperties();
+        showPopup(coordinate, properties);
+      } else {
+        hidePopup();
+      }
+    });
+
+    // Close popup
+    popupClose.addEventListener('click', hidePopup);
+
+    // Show suggestions
+    function showSuggestions(sugs) {
+      suggestionsDiv.innerHTML = '';
+      if (sugs.length === 0) {
+        suggestionsDiv.style.display = 'none';
+        return;
+      }
+      const ul = document.createElement('ul');
+      sugs.forEach(sug => {
+        const li = document.createElement('li');
+        li.className = sug.type;
+        li.textContent = sug.name;
+        li.addEventListener('click', () => {
+          handleSuggestionClick(sug);
+          searchInput.value = sug.name;
+          suggestionsDiv.style.display = 'none';
+        });
+        ul.appendChild(li);
+      });
+      suggestionsDiv.appendChild(ul);
+      suggestionsDiv.style.display = 'block';
+    }
+
+    // Handle suggestion click
+    function handleSuggestionClick(sug) {
+      if (sug.type === 'place') {
+        map.getView().setCenter(ol.proj.fromLonLat(sug.data.coords));
+        map.getView().setZoom(12);
+
+        // Check if it's a specific city and create folder
+        const lowerName = sug.name.toLowerCase();
+        // Role-based access check
+        if (role !== "all" && lowerName !== role) {
+          console.log('Access denied for this district');
+          return;
+        }
+        if (['rohtak', 'faridabad', 'panipat', 'yamunanagar'].includes(lowerName)) {
+          createCityFolder(sug.name);
+          // Switch to layers tab
+          if (!document.getElementById('layers').classList.contains('active')) {
+            document.querySelector('[data-tab="layers"]').click();
+          }
+        }
+      } else if (sug.type === 'layer') {
+        let value;
+        if (sug.name === 'Google Maps') value = 'google';
+        else if (sug.name === 'Google Satellite') value = 'google_sat';
+        else if (sug.name === 'OpenStreetMap') value = 'osm';
+        else if (sug.name === 'Satellite (ESRI)') value = 'sat';
+        baseMapSelect.value = value;
+        updateBaseMap();
+        // Switch to layers tab if not already
+        if (!document.getElementById('layers').classList.contains('active')) {
+          document.querySelector('[data-tab="layers"]').click();
+        }
+      }
+    }
+
+    // Input event
+    searchInput.addEventListener('input', function() {
+      const filter = this.value.toLowerCase();
+      currentSuggestions = allSuggestions.filter(s => s.name.toLowerCase().includes(filter));
+      showSuggestions(currentSuggestions);
+    });
+
+    // Keydown event
+    searchInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        suggestionsDiv.style.display = 'none';
+        const query = this.value.trim();
+        if (query) {
+          // First, search local data
+          const localMatch = allowedPlaces.find(p => p.name.toLowerCase().includes(query.toLowerCase()));
+          if (localMatch) {
+            map.getView().setCenter(ol.proj.fromLonLat(localMatch.coords));
+            map.getView().setZoom(12);
+
+            // Check if it's a specific city and create folder
+            const lowerName = localMatch.name.toLowerCase();
+            // Role-based access check
+            if (role !== "all" && lowerName !== role) {
+              console.log('Access denied for this district');
+              return;
+            }
+            if (['rohtak', 'faridabad', 'panipat', 'yamunanagar'].includes(lowerName)) {
+              createCityFolder(localMatch.name);
+              // Switch to layers tab
+              if (!document.getElementById('layers').classList.contains('active')) {
+                document.querySelector('[data-tab="layers"]').click();
+              }
+            }
+            return;
+          }
+
+          // If no local match, use Nominatim geocoding (limited to Haryana/India)
+          fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=in&viewbox=74.7,27.7,77.8,30.8&bounded=1`)
+            .then(response => response.json())
+            .then(data => {
+              if (data.length > 0) {
+                const result = data[0];
+                const lon = parseFloat(result.lon);
+                const lat = parseFloat(result.lat);
+                map.getView().setCenter(ol.proj.fromLonLat([lon, lat]));
+                map.getView().setZoom(14);
+              } else {
+                alert('Location not found in Haryana or India');
+              }
+            })
+            .catch(err => {
+              console.error('Geocoding error:', err);
+              alert('Search failed. Please check your connection.');
+            });
+        }
+      } else if (e.key === 'Escape') {
+        suggestionsDiv.style.display = 'none';
+      }
+    });
+
+    // Search button click
+    searchBtn.addEventListener('click', function() {
+      const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+      searchInput.dispatchEvent(enterEvent);
+    });
+
+    // Click outside to hide suggestions
+    document.addEventListener('click', function(e) {
+      const searchBar = document.querySelector('.search-bar');
+      if (searchBar && !searchBar.contains(e.target)) {
+        suggestionsDiv.style.display = 'none';
+      }
+    });
+
+    // Make legend and popup draggable after map init
+    makeDraggable(legendDiv);
+    makeDraggable(popup);
+    makeDraggable(queryBuilder);
+
+    // Expose fitToCity globally
+    window.fitToCity = fitToCity;
+  </script>
+</body>
+</html>
