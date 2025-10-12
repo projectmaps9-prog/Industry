@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login | Haryana Industrial Survey Portal (for view)</title>
+  <title>Login | Haryana Industrial Survey Portal_view only</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     :root {
       --primary: #1e3a8a;
       --secondary: #2563eb;
       --accent: #3b82f6;
-      --text-dark: #1e293b;
       --light: #f8fafc;
       --radius: 14px;
     }
@@ -20,12 +19,14 @@
     body {
       font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(135deg, var(--primary), var(--secondary));
-      height: 100vh;
+      min-height: 100vh;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       position: relative;
-      overflow: hidden;
+      overflow-x: hidden;
+      padding: 20px;
     }
 
     /* Haryana Map Watermark */
@@ -51,7 +52,6 @@
       animation: float 10s infinite ease-in-out;
       filter: blur(6px);
     }
-
     .background-shapes span:nth-child(1) { top: 10%; left: 15%; animation-delay: 0s; }
     .background-shapes span:nth-child(2) { top: 70%; left: 70%; animation-delay: 3s; }
     .background-shapes span:nth-child(3) { top: 40%; left: 85%; animation-delay: 5s; }
@@ -65,14 +65,14 @@
     /* Container for login + collage */
     .container {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       gap: 50px;
       position: relative;
       z-index: 1;
       width: 100%;
       max-width: 1200px;
-      padding: 20px;
+      flex-wrap: wrap;
     }
 
     /* Login box */
@@ -90,6 +90,7 @@
       color: var(--light);
       text-align: center;
       animation: fadeIn 1s ease;
+      flex-shrink: 0;
     }
 
     .portal-logo {
@@ -172,9 +173,25 @@
     }
 
     .footer-text {
-      margin-top: 25px;
+      margin-top: 15px;
       font-size: 12px;
       color: #cbd5e1;
+    }
+
+    /* Disclaimer */
+    .disclaimer {
+      width: 100%;
+      max-width: 800px;
+      background: #fffbcc;
+      color: #663c00;
+      border-left: 5px solid #ffcc00;
+      padding: 12px 20px;
+      margin-top: 40px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 14px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
 
     @keyframes fadeIn {
@@ -182,15 +199,16 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* Industrial collage styles */
+    /* Industrial collage */
     .image-collage {
       position: relative;
-      width: 450px;
-      height: 450px;
       display: flex;
       flex-wrap: wrap;
       gap: 15px;
+      justify-content: center;
       perspective: 1000px;
+      max-width: 450px;
+      flex-shrink: 0;
     }
 
     .image-collage img {
@@ -202,17 +220,7 @@
       transform: rotate(0deg) scale(1);
       animation: collageFloat 8s infinite ease-in-out alternate;
       position: relative;
-    }
-
-    .image-collage img:nth-child(1) { animation-delay: 0s; transform: rotate(-3deg); }
-    .image-collage img:nth-child(2) { animation-delay: 2s; transform: rotate(2deg); }
-    .image-collage img:nth-child(3) { animation-delay: 4s; transform: rotate(-2deg); }
-    .image-collage img:nth-child(4) { animation-delay: 6s; transform: rotate(3deg); }
-
-    @keyframes collageFloat {
-      0% { transform: translateY(0px) rotate(var(--rotate)) scale(1); opacity: 0.85; }
-      50% { transform: translateY(-20px) rotate(var(--rotate)) scale(1.05); opacity: 0.65; }
-      100% { transform: translateY(0px) rotate(var(--rotate)) scale(1); opacity: 0.85; }
+      transition: all 0.3s ease;
     }
 
     .image-collage img:hover {
@@ -221,18 +229,26 @@
       z-index: 10;
     }
 
+    @keyframes collageFloat {
+      0% { transform: translateY(0px) rotate(var(--rotate)) scale(1); opacity: 0.85; }
+      50% { transform: translateY(-20px) rotate(var(--rotate)) scale(1.05); opacity: 0.65; }
+      100% { transform: translateY(0px) rotate(var(--rotate)) scale(1); opacity: 0.85; }
+    }
+
     /* Responsive */
     @media (max-width: 1024px) {
-      .container { flex-direction: column; gap: 40px; }
-      .image-collage { width: 80%; height: auto; justify-content: center; }
+      .container { flex-direction: column; gap: 40px; align-items: center; }
+      .image-collage { width: 80%; max-width: 400px; }
       .image-collage img { width: 45%; height: 200px; }
     }
 
     @media (max-width: 480px) {
-      .image-collage img { width: 90%; height: 150px; }
+      .container { gap: 20px; }
+      .image-collage { display: none; } /* Hide collage on mobile */
       .login-box { width: 90%; padding: 25px 18px; }
       h2 { font-size: 18px; }
       p { font-size: 12px; }
+      .disclaimer { font-size: 12px; padding: 10px 15px; }
     }
   </style>
 </head>
@@ -270,6 +286,10 @@
     </div>
   </div>
 
+  <div class="disclaimer">
+    ⚠️ This portal will not be used for legal purposes. It is only for viewing the data.
+  </div>
+
   <script>
     const users = {
       admin: { password: "1234", access: "all" },
@@ -300,4 +320,3 @@
   </script>
 </body>
 </html>
-
