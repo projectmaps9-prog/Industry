@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Haryana Industrial Survey Portal</title>
+  <title>Haryana Industrial Portal</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   body, html {
     margin: 0;
@@ -833,6 +834,23 @@
     z-index: 1000;
     box-shadow: 0 -2px 6px rgba(0,0,0,0.1);
   }
+
+  /* PDF Report Button */
+  #exportPdfReport {
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 10px;
+    width: 100%;
+    font-size: 14px;
+    transition: background 0.2s;
+  }
+  #exportPdfReport:hover {
+    background: #3b82f6;
+  }
   
 </style>
 
@@ -841,18 +859,18 @@
 
   <script>
   // Temporarily set default logged-in state for demo purposes (remove in production)
-  if (!localStorage.getItem("loggedIn")) {
-    localStorage.setItem("loggedIn", "true");
-    localStorage.setItem("role", "all");
+  if (!sessionStorage.getItem("loggedIn")) {
+    sessionStorage.setItem("loggedIn", "true");
+    sessionStorage.setItem("role", "all");
   }
 
-  const loggedIn = localStorage.getItem("loggedIn");
-  const role = localStorage.getItem("role");
+  const loggedIn = sessionStorage.getItem("loggedIn");
+  const role = sessionStorage.getItem("role");
 
   // Comment out redirect for demo (uncomment in production)
-  // if (!loggedIn) {
-  //   window.location.href = "index.html";
-  // }
+   if (!loggedIn) {
+   window.location.href = "index.html";
+   }
 
   // Hide content for district users
   document.addEventListener("DOMContentLoaded", () => {
@@ -921,11 +939,11 @@
     document.getElementById("logoutModal").style.display = "none";
   });
   document.getElementById("confirmLogout").addEventListener("click", () => {
-    localStorage.removeItem("loggedIn");
-    localStorage.removeItem("role");
-    localStorage.removeItem("username");
-    window.location.href = "index.html";
-  });
+  sessionStorage.removeItem("loggedIn");  // Changed from localStorage
+  sessionStorage.removeItem("role");  // Changed from localStorage
+  sessionStorage.removeItem("username");  // Changed from localStorage
+  window.location.href = "index.html";
+});
 </script>
 
 
@@ -989,6 +1007,9 @@
           <div id="reports-content">
             <!-- Dynamic content -->
           </div>
+          <button id="exportPdfReport">
+            <i class="fas fa-file-pdf"></i> Download PDF Report
+          </button>
         </div>
       </div>
     </div>
@@ -4338,6 +4359,196 @@ map.on('singleclick', function (evt) {
 
     // Expose fitToCity globally
     window.fitToCity = fitToCity;
+
+   // PDF Report Generation Function
+function generatePDFReport() {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p', 'mm', 'a4'); // A4 portrait
+  const timestamp = new Date().toISOString().slice(0, 19).replace('T', '_');
+  const filename = `GIS_Report_${timestamp}.pdf`;
+
+  let yPos = 10;
+
+  // Header with timestamp
+  pdf.setFontSize(20);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(30, 58, 138); // #1e3a8a
+  pdf.text('Haryana Industrial Portal — Report', 105, yPos, { align: 'center' });
+  yPos += 8;
+
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setTextColor(100, 100, 100);
+  pdf.text(`Generated: ${new Date().toLocaleString()}`, 105, yPos, { align: 'center' });
+  yPos += 15;
+
+  // Helper to add page if needed
+  function addPageIfNeeded(requiredHeight) {
+    const pageHeight = 297; // A4 height in mm
+    if (yPos + requiredHeight > pageHeight - 20) {
+      pdf.addPage();
+      yPos = 10;
+    }
+  }
+
+  // Temporarily switch to CORS-enabled base map (OSM) for clean capture
+  const originalBaseMap = baseMapSelect.value;
+  baseMapSelect.value = 'osm';
+  updateBaseMap();
+
+  // Wait for map to fully render (tiles loaded)
+  const waitForRender = new Promise((resolve) => {
+    const handleRender = () => {
+      map.once('rendercomplete', resolve);
+      map.renderSync(); // Force a synchronous render
+    };
+    handleRender();
+  });
+
+  waitForRender
+    .then(() => {
+      return html2canvas(document.getElementById('map'), {
+        scale: 2,
+        backgroundColor: '#f4f6f9', // Match body background
+        useCORS: true,
+        allowTaint: false  // No taint expected with OSM
+      });
+    })
+    .then(mapCanvas => {
+      // Switch back to original base map
+      baseMapSelect.value = originalBaseMap;
+      updateBaseMap();
+
+      const mapImgData = mapCanvas.toDataURL('image/png');
+      const mapImgWidth = 190;
+      const mapImgHeight = (mapCanvas.height * mapImgWidth) / mapCanvas.width;
+      addPageIfNeeded(mapImgHeight + 10);
+
+      pdf.addImage(mapImgData, 'PNG', 10, yPos, mapImgWidth, mapImgHeight);
+      yPos += mapImgHeight + 10;
+
+      // Capture chart image if available
+      if (window.reportsChart) {
+        const chartImgData = window.reportsChart.toBase64Image('image/png', 1.0);
+        const chartImgHeight = 120;
+        const chartImgWidth = 180;
+        addPageIfNeeded(chartImgHeight + 10);
+
+        // Light gray background card for chart
+        pdf.setFillColor(248, 250, 252); // #f8fafc
+        pdf.rect(10, yPos - 5, 180, chartImgHeight + 10, 'F');
+        pdf.setDrawColor(30, 58, 138);
+        pdf.setLineWidth(0.5);
+        pdf.rect(10, yPos - 5, 180, chartImgHeight + 10, 'S');
+
+        pdf.addImage(chartImgData, 'PNG', 15, yPos + 5, chartImgWidth, chartImgHeight);
+        yPos += chartImgHeight + 20;
+      }
+
+      // Optional: Selected Industries from Query Builder (if any)
+      if (typeof currentResults !== 'undefined' && currentResults.length > 0) {
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(30, 58, 138);
+        pdf.text('Selected Industries from Query', 10, yPos);
+        yPos += 8;
+
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(0, 0, 0);
+        pdf.text(`Total Selected: ${currentResults.length}`, 10, yPos);
+        yPos += 5;
+
+        // List first 5 selected (with company names)
+        currentResults.slice(0, 5).forEach((feature, index) => {
+          const props = feature.getProperties();
+          const name = props.searchName || props['Company Na'] || props['NAME'] || `Industry ${index + 1}`;
+          pdf.text(`• ${name}`, 10, yPos);
+          yPos += 4;
+          addPageIfNeeded(4); // Check per line
+        });
+
+        if (currentResults.length > 5) {
+          pdf.text(`... and ${currentResults.length - 5} more`, 10, yPos);
+          yPos += 8;
+        }
+        yPos += 5; // Extra space
+      }
+
+      // District Stats Summary (grid-like with cards)
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(30, 58, 138);
+      pdf.text('District Summary', 10, yPos);
+      yPos += 10;
+
+      // Stats data mapping (pull from DOM elements)
+      const statsMap = {
+        faridabad: { name: 'Faridabad', totalId: 'faridabad-total', confId: 'faridabad-conforming', nonConfId: 'faridabad-nonconforming' },
+        rohtak: { name: 'Rohtak', totalId: 'rohtak-total', confId: 'rohtak-conforming', nonConfId: 'rohtak-nonconforming' },
+        ynr: { name: 'Yamunanagar', totalId: 'ynr-total', confId: 'ynr-conforming', nonConfId: 'ynr-nonconforming' },
+        panipat: { name: 'Panipat', totalId: 'panipat-total', confId: 'panipat-conforming', nonConfId: 'panipat-nonconforming' }
+      };
+
+      Object.values(statsMap).forEach((dist, index) => {
+        const totalEl = document.getElementById(dist.totalId);
+        const confEl = document.getElementById(dist.confId);
+        const nonConfEl = document.getElementById(dist.nonConfId);
+
+        // Fallback example data if elements missing (for demo)
+        const total = totalEl ? totalEl.textContent : 'N/A';
+        const conf = confEl ? confEl.textContent : 'N/A';
+        const nonConf = nonConfEl ? nonConfEl.textContent : 'N/A';
+
+        // Light gray card for each district
+        const cardY = yPos;
+        const cardHeight = 25;
+        pdf.setFillColor(248, 250, 252); // #f8fafc
+        pdf.rect(10, cardY, 95, cardHeight, 'F'); // Left card
+        if (index % 2 === 1) { // Right card for even indices
+          pdf.setFillColor(248, 250, 252);
+          pdf.rect(105, cardY - 25, 95, cardHeight, 'F'); // Align with previous
+          yPos -= 25; // Adjust for two-column
+        }
+        pdf.setDrawColor(30, 58, 138);
+        pdf.setLineWidth(0.5);
+        pdf.rect(10 + (index % 2 === 1 ? 95 : 0), cardY, 95, cardHeight, 'S');
+
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(30, 58, 138);
+        pdf.text(dist.name, 15 + (index % 2 === 1 ? 95 : 0), yPos + 5);
+
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(0, 0, 0);
+        pdf.text(`Total: ${total}`, 15 + (index % 2 === 1 ? 95 : 0), yPos + 12);
+        pdf.text(`Conforming: ${conf}`, 15 + (index % 2 === 1 ? 95 : 0), yPos + 17);
+        pdf.text(`Non-Conforming: ${nonConf}`, 15 + (index % 2 === 1 ? 95 : 0), yPos + 22);
+
+        yPos += (index % 2 === 0 ? cardHeight : 0) + 5; // Advance row
+        addPageIfNeeded(cardHeight + 10);
+      });
+
+      // Save the PDF
+      pdf.save(filename);
+    })
+    .catch(err => {
+      console.error('Error generating PDF:', err);
+      // Switch back on error too
+      baseMapSelect.value = originalBaseMap;
+      updateBaseMap();
+      alert('Failed to generate PDF. Check console for details.');
+    });
+}
+
+    // Hook up the button (add this after the function definition, assuming the button exists in HTML)
+    document.addEventListener('DOMContentLoaded', function() {
+      const exportBtn = document.getElementById('exportPdfReport');
+      if (exportBtn) {
+        exportBtn.addEventListener('click', generatePDFReport);
+      }
+    });
   </script>
 </body>
 </html>
