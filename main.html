@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Web GIS Portal</title>
+  <title>Haryana Industrial Survey Portal</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -776,6 +776,48 @@
     background: #3b82f6;
   }
 
+  /* Spatial Query Styles */
+  #drawPolygonBtn, #drawBufferBtn {
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 5px;
+    margin-top: 5px;
+    font-size: 11px;
+  }
+  #drawPolygonBtn:hover, #drawBufferBtn:hover {
+    background: #3b82f6;
+  }
+  #spatialSection {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f0f8ff;
+    border-radius: 4px;
+    border-left: 4px solid #1e3a8a;
+  }
+  #spatialSection h5 {
+    margin: 0 0 8px 0;
+    color: #1e3a8a;
+    font-size: 13px;
+  }
+  #exportSpatial, #clearSpatial {
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 5px;
+    margin-top: 5px;
+    font-size: 11px;
+  }
+  #exportSpatial:hover, #clearSpatial:hover {
+    background: #3b82f6;
+  }
+
   /* Disclaimer Footer */
   .disclaimer {
     position: fixed;
@@ -999,7 +1041,15 @@
         <div id="queryResults"></div>
         <div style="margin-top: 10px;">
           <button id="resetQuery">Reset</button>
-          <button id="exportResults">Export CSV</button>
+          <button id="exportResults">Export Searched Industry</button>
+        </div>
+        <div style="margin-top: 10px;">
+          <button id="drawPolygonBtn">Draw Polygon</button>
+          <button id="drawBufferBtn">Draw Buffer</button>
+        </div>
+        <div id="spatialSection">
+          <h5>Spatial Query Results</h5>
+          <div id="spatialResults"></div>
         </div>
       </div>
     </div>
@@ -1457,6 +1507,16 @@
     let prevDistrict = null;
     let searchHistory = [];
 
+    // Spatial Query elements
+    const drawPolygonBtn = document.getElementById('drawPolygonBtn');
+    const drawBufferBtn = document.getElementById('drawBufferBtn');
+    const spatialSection = document.getElementById('spatialSection');
+    const spatialResultsDiv = document.getElementById('spatialResults');
+    let drawInteraction = null;
+    let highlightOverlay = null;
+    let spatialResults = [];
+    let drawLayer = null; // Persistent layer for drawn geometries
+
     // Debounce function
     function debounce(func, delay) {
       let timeout;
@@ -1496,6 +1556,19 @@
     queryClose.addEventListener('click', () => {
       searchHistory = [];
       displayHistory();
+      if (drawInteraction) {
+        map.removeInteraction(drawInteraction);
+        drawInteraction = null;
+      }
+      if (highlightOverlay) {
+        highlightOverlay.getSource().clear();
+      }
+      if (drawLayer) {
+        drawLayer.getSource().clear();
+      }
+      spatialResults = [];
+      spatialSection.style.display = 'none';
+      spatialResultsDiv.innerHTML = '';
       queryBuilder.style.display = 'none';
     });
 
@@ -1506,6 +1579,16 @@
     if (prevFolder) {
       removeCityFolder(prevLower, prevFolder);
     }
+    // Clear spatial on district change
+    if (highlightOverlay) {
+      highlightOverlay.getSource().clear();
+    }
+    if (drawLayer) {
+      drawLayer.getSource().clear();
+    }
+    spatialResults = [];
+    spatialSection.style.display = 'none';
+    spatialResultsDiv.innerHTML = '';
   }
   prevDistrict = this.value;
 
@@ -1761,6 +1844,20 @@
       queryResults.innerHTML = '';
       searchHistory = [];
       displayHistory();
+      // Clear spatial
+      if (drawInteraction) {
+        map.removeInteraction(drawInteraction);
+        drawInteraction = null;
+      }
+      if (highlightOverlay) {
+        highlightOverlay.getSource().clear();
+      }
+      if (drawLayer) {
+        drawLayer.getSource().clear();
+      }
+      spatialResults = [];
+      spatialSection.style.display = 'none';
+      spatialResultsDiv.innerHTML = '';
     });
 
     exportResults.addEventListener('click', () => {
@@ -1798,12 +1895,177 @@
       URL.revokeObjectURL(url);
     });
 
+    // Spatial query functions
+    function startDraw(type) {
+      if (drawInteraction) {
+        map.removeInteraction(drawInteraction);
+      }
+      const drawType = type === 'polygon' ? 'Polygon' : 'Circle';
+      drawInteraction = new ol.interaction.Draw({
+        source: new ol.source.Vector({wrapX: false}),
+        type: drawType
+      });
+      map.addInteraction(drawInteraction);
+      drawInteraction.on('drawend', function(evt) {
+        const feature = evt.feature;
+        const geom = feature.getGeometry();
+        // Add the drawn feature to the persistent drawLayer
+        if (!drawLayer) {
+          drawLayer = new ol.layer.Vector({
+            source: new ol.source.Vector(),
+            style: new ol.style.Style({
+              fill: new ol.style.Fill({
+                color: 'rgba(255, 255, 255, 0.2)'
+              }),
+              stroke: new ol.style.Stroke({
+                color: '#ffcc33',
+                width: 2
+              }),
+              image: new ol.style.Circle({
+                radius: 7,
+                fill: new ol.style.Fill({
+                  color: '#ffcc33'
+                })
+              })
+            }),
+            zIndex: 300
+          });
+          map.addLayer(drawLayer);
+        }
+        drawLayer.getSource().addFeature(feature);
+        querySpatial(geom);
+        map.removeInteraction(drawInteraction);
+        drawInteraction = null;
+      });
+    }
+
+    function querySpatial(geom) {
+      let allIndFeatures = [];
+      Object.keys(industrialLayers).forEach(key => {
+        const layer = industrialLayers[key];
+        if (layer.getVisible()) {
+          layer.getSource().getFeatures().forEach(f => {
+            if (f.getGeometry()) {
+              allIndFeatures.push(f);
+            }
+          });
+        }
+      });
+      spatialResults = allIndFeatures.filter(f => {
+        const featGeom = f.getGeometry();
+        if (featGeom instanceof ol.geom.Point) {
+          return geom.intersectsCoordinate(featGeom.getCoordinates());
+        }
+        return false;
+      });
+      highlightResults(spatialResults);
+      showSpatialPopup(spatialResults.length);
+    }
+
+    function highlightResults(features) {
+      if (!highlightOverlay) {
+        highlightOverlay = new ol.layer.Vector({
+          source: new ol.source.Vector(),
+          map: map,
+          style: new ol.style.Style({
+            image: new ol.style.Circle({
+              radius: 6,
+              fill: new ol.style.Fill({color: 'yellow'}),
+              stroke: new ol.style.Stroke({color: 'red', width: 2})
+            })
+          })
+        });
+      } else {
+        highlightOverlay.getSource().clear();
+      }
+      features.forEach(f => {
+        const clone = f.clone();
+        highlightOverlay.getSource().addFeature(clone);
+      });
+      if (features.length > 0) {
+        const extent = ol.extent.boundingExtent(features.map(f => f.getGeometry().getExtent()));
+        map.getView().fit(extent, {padding: [50, 50, 50, 50]});
+      }
+    }
+
+    function showSpatialPopup(count) {
+      spatialResultsDiv.innerHTML = `
+        <p><strong>Total industries inside area:</strong> ${count}</p>
+        <button id="exportSpatial">Export CSV</button>
+        <button id="clearSpatial">Clear</button>
+      `;
+      spatialSection.style.display = 'block';
+      const exportSpatialBtn = document.getElementById('exportSpatial');
+      const clearSpatialBtn = document.getElementById('clearSpatial');
+      exportSpatialBtn.addEventListener('click', () => exportSpatial(spatialResults));
+      clearSpatialBtn.addEventListener('click', () => {
+        if (highlightOverlay) {
+          highlightOverlay.getSource().clear();
+        }
+        if (drawLayer) {
+          drawLayer.getSource().clear();
+        }
+        spatialResults = [];
+        spatialSection.style.display = 'none';
+        spatialResultsDiv.innerHTML = '';
+      });
+    }
+
+    function exportSpatial(results) {
+      if (results.length === 0) {
+        alert('No results to export');
+        return;
+      }
+      let headers = new Set();
+      results.forEach(f => {
+        Object.keys(f.getProperties()).forEach(k => {
+          if (k !== 'geometry') headers.add(k);
+        });
+      });
+      headers = Array.from(headers);
+      let csv = headers.join(',') + '\n';
+      results.forEach(f => {
+        const props = f.getProperties();
+        const row = headers.map(h => {
+          let val = props[h] !== undefined ? props[h] : '';
+          if (typeof val === 'string') val = val.replace(/"/g, '""');
+          return `"${val}"`;
+        }).join(',');
+        csv += row + '\n';
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${districtSelect.value}_spatial_industries.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    drawPolygonBtn.addEventListener('click', () => startDraw('polygon'));
+    drawBufferBtn.addEventListener('click', () => startDraw('buffer'));
+
     function toggleQueryBuilder() {
       const isVisible = queryBuilder.style.display === 'block';
       if (isVisible) {
         // closing
         searchHistory = [];
         displayHistory();
+        if (drawInteraction) {
+          map.removeInteraction(drawInteraction);
+          drawInteraction = null;
+        }
+        if (highlightOverlay) {
+          highlightOverlay.getSource().clear();
+        }
+        if (drawLayer) {
+          drawLayer.getSource().clear();
+        }
+        spatialResults = [];
+        spatialSection.style.display = 'none';
+        spatialResultsDiv.innerHTML = '';
         queryBuilder.style.display = 'none';
       } else {
         // opening
