@@ -358,6 +358,82 @@
     transform: scale(1.05);
   }
 
+  /* Measurement Toggle Button */
+  .measurement-toggle {
+    position: absolute;
+    top: 160px;
+    right: 20px;
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    border-radius: 6px;
+    transition: all 0.3s;
+    z-index: 1002;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  .measurement-toggle:hover {
+    background: #3b82f6;
+    transform: scale(1.05);
+  }
+
+  /* Measurement Panel */
+  #measurementPanel {
+    position: absolute;
+    top: 190px;
+    right: 20px;
+    background: white;
+    padding: 10px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 1003;
+    display: none;
+    min-width: 200px;
+    border: 1px solid #ddd;
+  }
+  #measurementPanel button {
+    display: block;
+    width: 100%;
+    margin-bottom: 5px;
+    padding: 6px;
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  #measurementPanel button:hover {
+    background: #3b82f6;
+  }
+  #measurementPanel select {
+    width: 100%;
+    padding: 6px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  #measurementResult {
+    margin-top: 10px;
+    padding: 8px;
+    background: #f8fafc;
+    border-radius: 4px;
+    font-size: 12px;
+    text-align: center;
+    color: #1e3a8a;
+    font-weight: bold;
+  }
+  #clearMeasurement {
+    background: #ef4444;
+    margin-top: 10px;
+  }
+  #clearMeasurement:hover {
+    background: #dc2626;
+  }
+
   /* Collapsed Sidebar */
   .collapsed .sidebar {
     width: 0;
@@ -1074,6 +1150,25 @@
         </div>
       </div>
     </div>
+
+    <!-- Measurement Panel -->
+    <div id="measurementPanel">
+      <button id="measureDistance"><i class="fas fa-ruler"></i> Distance</button>
+      <button id="measureArea"><i class="fas fa-draw-polygon"></i> Area</button>
+      <select id="measureUnit">
+        <optgroup label="Length">
+          <option value="m">Meters (m)</option>
+          <option value="km">Kilometers (km)</option>
+        </optgroup>
+        <optgroup label="Area">
+          <option value="m2">Square Meters (m²)</option>
+          <option value="ha">Hectares (ha)</option>
+          <option value="km2">Square Kilometers (km²)</option>
+        </optgroup>
+      </select>
+      <div id="measurementResult"></div>
+      <button id="clearMeasurement">Clear Measurements</button>
+    </div>
   </div>
 
   <!-- Collapse Button -->
@@ -1084,6 +1179,9 @@
 
   <!-- Query Builder Toggle Button -->
   <button class="query-builder-toggle" onclick="toggleQueryBuilder()"><i class="fas fa-database"></i> Query Builder</button>
+
+  <!-- Measurement Toggle Button -->
+  <button class="measurement-toggle" onclick="toggleMeasurement()"><i class="fas fa-ruler-combined"></i> Measure</button>
 
   <!-- Disclaimer Footer -->
   <div class="disclaimer">
@@ -1458,6 +1556,145 @@
       })
     });
 
+    // Measurement variables
+    let measureSource = new ol.source.Vector();
+    let measureLayer = new ol.layer.Vector({
+      source: measureSource,
+      style: new ol.style.Style({
+        fill: new ol.style.Fill({
+          color: 'rgba(255, 255, 255, 0.2)'
+        }),
+        stroke: new ol.style.Stroke({
+          color: 'rgba(255, 0, 0, 0.8)',
+          width: 2
+        }),
+        image: new ol.style.Circle({
+          radius: 7,
+          fill: new ol.style.Fill({
+            color: 'rgba(255, 0, 0, 0.8)'
+          })
+        })
+      }),
+      zIndex: 400
+    });
+    map.addLayer(measureLayer);
+
+    let currentMeasureType = null;
+    let drawInteraction = null;
+    const measurePanel = document.getElementById('measurementPanel');
+    const measureUnitSelect = document.getElementById('measureUnit');
+    const measurementResult = document.getElementById('measurementResult');
+
+    function toggleMeasurement() {
+      const isVisible = measurePanel.style.display === 'block';
+      if (isVisible) {
+        measurePanel.style.display = 'none';
+        if (drawInteraction) {
+          map.removeInteraction(drawInteraction);
+          drawInteraction = null;
+        }
+        measureSource.clear();
+        measurementResult.textContent = '';
+        currentMeasureType = null;
+      } else {
+        measurePanel.style.display = 'block';
+      }
+    }
+
+    function startMeasurement(type) {
+      if (drawInteraction) {
+        map.removeInteraction(drawInteraction);
+      }
+      currentMeasureType = type;
+      const geometryType = type === 'distance' ? 'LineString' : 'Polygon';
+      drawInteraction = new ol.interaction.Draw({
+        source: measureSource,
+        type: geometryType,
+        style: new ol.style.Style({
+          fill: new ol.style.Fill({
+            color: 'rgba(255, 255, 255, 0.2)'
+          }),
+          stroke: new ol.style.Stroke({
+            color: 'rgba(255, 0, 0, 0.8)',
+            width: 2
+          }),
+          image: new ol.style.Circle({
+            radius: 7,
+            fill: new ol.style.Fill({
+              color: 'rgba(255, 0, 0, 0.8)'
+            })
+          })
+        })
+      });
+      map.addInteraction(drawInteraction);
+
+      drawInteraction.on('drawend', function(evt) {
+        const feature = evt.feature;
+        const geometry = feature.getGeometry();
+        let output;
+        if (type === 'distance') {
+          const length = ol.Sphere.getLength(geometry);
+          output = formatLength(length);
+        } else {
+          const area = geometry.getArea();
+          output = formatArea(area);
+        }
+        measurementResult.innerHTML = `<i class="fas fa-info-circle"></i> ${output}`;
+        feature.set('measure', output);
+        map.removeInteraction(drawInteraction);
+        drawInteraction = null;
+      });
+    }
+
+    function formatLength(lineLength) {
+      const unit = measureUnitSelect.value;
+      let output;
+      if (unit === 'km') {
+        output = (lineLength / 1000).toFixed(2) + ' ' + 'km';
+      } else {
+        output = lineLength.toFixed(2) + ' ' + 'm';
+      }
+      return output;
+    }
+
+    function formatArea(area) {
+      const unit = measureUnitSelect.value;
+      let output;
+      const areaSqKm = area / 1000000;
+      const areaHa = area / 10000;
+      if (unit === 'km2') {
+        output = (areaSqKm).toFixed(2) + ' ' + 'km<sup>2</sup>';
+      } else if (unit === 'ha') {
+        output = (areaHa).toFixed(2) + ' ' + 'ha';
+      } else {
+        output = area.toFixed(2) + ' ' + 'm<sup>2</sup>';
+      }
+      return output;
+    }
+
+    document.getElementById('measureDistance').addEventListener('click', () => startMeasurement('distance'));
+    document.getElementById('measureArea').addEventListener('click', () => startMeasurement('area'));
+    document.getElementById('clearMeasurement').addEventListener('click', () => {
+      measureSource.clear();
+      measurementResult.textContent = '';
+    });
+
+    measureUnitSelect.addEventListener('change', () => {
+      measureSource.getFeatures().forEach(feature => {
+        const geometry = feature.getGeometry();
+        let output;
+        if (currentMeasureType === 'distance') {
+          const length = ol.Sphere.getLength(geometry);
+          output = formatLength(length);
+        } else {
+          const area = geometry.getArea();
+          output = formatArea(area);
+        }
+        feature.set('measure', output);
+        measurementResult.innerHTML = `<i class="fas fa-info-circle"></i> ${output}`;
+      });
+    });
+
     // Visible landuses set
     let visibleLanduses = new Set();
     let visibleZones = new Set();
@@ -1533,7 +1770,6 @@
     const drawBufferBtn = document.getElementById('drawBufferBtn');
     const spatialSection = document.getElementById('spatialSection');
     const spatialResultsDiv = document.getElementById('spatialResults');
-    let drawInteraction = null;
     let highlightOverlay = null;
     let spatialResults = [];
     let drawLayer = null; // Persistent layer for drawn geometries
@@ -4360,20 +4596,35 @@ map.on('singleclick', function (evt) {
     // Expose fitToCity globally
     window.fitToCity = fitToCity;
 
-   // PDF Report Generation Function
+// PDF Report Generation Function (Corrected)
 function generatePDFReport() {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF('p', 'mm', 'a4'); // A4 portrait
   const timestamp = new Date().toISOString().slice(0, 19).replace('T', '_');
-  const filename = `GIS_Report_${timestamp}.pdf`;
+  
+  // Determine district name dynamically
+  let districtName = '';
+  if (currentReportDistt) {
+    districtName = currentReportDistt.replace(' Distt', '');
+  } else if (districtSelect && districtSelect.value) {
+    const disttMap = {
+      'rohtak': 'Rohtak',
+      'yamunanagar': 'Yamunanagar',
+      'faridabad': 'Faridabad',
+      'panipat': 'Panipat'
+    };
+    districtName = disttMap[districtSelect.value] || '';
+  }
+  const filename = districtName ? `${districtName}_GIS_Report_${timestamp}.pdf` : `Haryana_GIS_Report_${timestamp}.pdf`;
 
   let yPos = 10;
 
-  // Header with timestamp
+  // Header with district name and timestamp
   pdf.setFontSize(20);
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor(30, 58, 138); // #1e3a8a
-  pdf.text('Haryana Industrial Portal — Report', 105, yPos, { align: 'center' });
+  const headerText = districtName ? `Haryana Industrial Portal — ${districtName} Report` : 'Haryana Industrial Portal — Report';
+  pdf.text(headerText, 105, yPos, { align: 'center' });
   yPos += 8;
 
   pdf.setFontSize(10);
@@ -4391,12 +4642,12 @@ function generatePDFReport() {
     }
   }
 
-  // Temporarily switch to CORS-enabled base map (OSM) for clean capture
+  // Temporarily switch to CORS-enabled base map (OSM) for clean HQ capture
   const originalBaseMap = baseMapSelect.value;
   baseMapSelect.value = 'osm';
   updateBaseMap();
 
-  // Wait for map to fully render (tiles loaded)
+  // Wait for map to fully render (tiles loaded) - improved for HQ
   const waitForRender = new Promise((resolve) => {
     const handleRender = () => {
       map.once('rendercomplete', resolve);
@@ -4408,7 +4659,7 @@ function generatePDFReport() {
   waitForRender
     .then(() => {
       return html2canvas(document.getElementById('map'), {
-        scale: 2,
+        scale: 3, // Increased for HQ (sharper image)
         backgroundColor: '#f4f6f9', // Match body background
         useCORS: true,
         allowTaint: false  // No taint expected with OSM
@@ -4427,11 +4678,28 @@ function generatePDFReport() {
       pdf.addImage(mapImgData, 'PNG', 10, yPos, mapImgWidth, mapImgHeight);
       yPos += mapImgHeight + 10;
 
-      // Capture chart image if available
+      // Capture chart image if available (HQ export)
       if (window.reportsChart) {
-        const chartImgData = window.reportsChart.toBase64Image('image/png', 1.0);
+        // Temporarily resize chart canvas for HQ export
+        const chartCanvas = document.querySelector('#chartCanvas');
+        const originalChartWidth = chartCanvas.width;
+        const originalChartHeight = chartCanvas.height;
+        const hqScale = 2; // HQ scale for chart
+        chartCanvas.width = originalChartWidth * hqScale;
+        chartCanvas.height = originalChartHeight * hqScale;
+        window.reportsChart.resize(chartCanvas.width, chartCanvas.height);
+        window.reportsChart.update('none'); // Force redraw
+
+        const chartImgData = chartCanvas.toDataURL('image/png', 1.0);
         const chartImgHeight = 120;
         const chartImgWidth = 180;
+
+        // Resize back
+        chartCanvas.width = originalChartWidth;
+        chartCanvas.height = originalChartHeight;
+        window.reportsChart.resize(originalChartWidth, originalChartHeight);
+        window.reportsChart.update('none');
+
         addPageIfNeeded(chartImgHeight + 10);
 
         // Light gray background card for chart
@@ -4450,7 +4718,7 @@ function generatePDFReport() {
         pdf.setFontSize(14);
         pdf.setFont('helvetica', 'bold');
         pdf.setTextColor(30, 58, 138);
-        pdf.text('Selected Industries from Query', 10, yPos);
+        pdf.text(`${districtName || 'Selected'} Industries from Query`, 10, yPos);
         yPos += 8;
 
         pdf.setFontSize(10);
@@ -4475,58 +4743,56 @@ function generatePDFReport() {
         yPos += 5; // Extra space
       }
 
-      // District Stats Summary (grid-like with cards)
+      // District Stats Summary (improved: use getCategoryCounts for accurate data, better grid)
       pdf.setFontSize(16);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(30, 58, 138);
-      pdf.text('District Summary', 10, yPos);
+      pdf.text('District Summary (By Category)', 10, yPos);
       yPos += 10;
 
-      // Stats data mapping (pull from DOM elements)
-      const statsMap = {
-        faridabad: { name: 'Faridabad', totalId: 'faridabad-total', confId: 'faridabad-conforming', nonConfId: 'faridabad-nonconforming' },
-        rohtak: { name: 'Rohtak', totalId: 'rohtak-total', confId: 'rohtak-conforming', nonConfId: 'rohtak-nonconforming' },
-        ynr: { name: 'Yamunanagar', totalId: 'ynr-total', confId: 'ynr-conforming', nonConfId: 'ynr-nonconforming' },
-        panipat: { name: 'Panipat', totalId: 'panipat-total', confId: 'panipat-conforming', nonConfId: 'panipat-nonconforming' }
-      };
+      // District config with accurate counts from data (no DOM fallback)
+      const districts = [
+        { name: 'Rohtak', lower: 'rohtak' },
+        { name: 'Yamunanagar', lower: 'yamunanagar' },
+        { name: 'Faridabad', lower: 'faridabad' },
+        { name: 'Panipat', lower: 'panipat' }
+      ];
 
-      Object.values(statsMap).forEach((dist, index) => {
-        const totalEl = document.getElementById(dist.totalId);
-        const confEl = document.getElementById(dist.confId);
-        const nonConfEl = document.getElementById(dist.nonConfId);
+      districts.forEach((dist, index) => {
+        const counts = getCategoryCounts(`${dist.name} Distt`); // Use your existing function for accurate counts
+        const total = Object.values(counts).reduce((a, b) => a + b, 0);
+        const conf = /* Approximate conforming/non from your stats */ document.getElementById(`${dist.lower}-conforming`)?.textContent || 'N/A';
+        const nonConf = document.getElementById(`${dist.lower}-nonconforming`)?.textContent || 'N/A';
 
-        // Fallback example data if elements missing (for demo)
-        const total = totalEl ? totalEl.textContent : 'N/A';
-        const conf = confEl ? confEl.textContent : 'N/A';
-        const nonConf = nonConfEl ? nonConfEl.textContent : 'N/A';
+        // Two-column grid for cards
+        const colOffset = (index % 2 === 1) ? 95 : 0;
+        const cardY = yPos + (Math.floor(index / 2) * 35); // Stack in rows
+        const cardHeight = 30;
 
-        // Light gray card for each district
-        const cardY = yPos;
-        const cardHeight = 25;
+        // Light gray card
         pdf.setFillColor(248, 250, 252); // #f8fafc
-        pdf.rect(10, cardY, 95, cardHeight, 'F'); // Left card
-        if (index % 2 === 1) { // Right card for even indices
-          pdf.setFillColor(248, 250, 252);
-          pdf.rect(105, cardY - 25, 95, cardHeight, 'F'); // Align with previous
-          yPos -= 25; // Adjust for two-column
-        }
+        pdf.rect(10 + colOffset, cardY, 85, cardHeight, 'F');
         pdf.setDrawColor(30, 58, 138);
         pdf.setLineWidth(0.5);
-        pdf.rect(10 + (index % 2 === 1 ? 95 : 0), cardY, 95, cardHeight, 'S');
+        pdf.rect(10 + colOffset, cardY, 85, cardHeight, 'S');
 
+        // District name
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'bold');
         pdf.setTextColor(30, 58, 138);
-        pdf.text(dist.name, 15 + (index % 2 === 1 ? 95 : 0), yPos + 5);
+        pdf.text(dist.name, 15 + colOffset, cardY + 6);
 
-        pdf.setFontSize(10);
+        // Stats
+        pdf.setFontSize(9);
         pdf.setFont('helvetica', 'normal');
         pdf.setTextColor(0, 0, 0);
-        pdf.text(`Total: ${total}`, 15 + (index % 2 === 1 ? 95 : 0), yPos + 12);
-        pdf.text(`Conforming: ${conf}`, 15 + (index % 2 === 1 ? 95 : 0), yPos + 17);
-        pdf.text(`Non-Conforming: ${nonConf}`, 15 + (index % 2 === 1 ? 95 : 0), yPos + 22);
+        pdf.text(`Total: ${total}`, 15 + colOffset, cardY + 14);
+        pdf.text(`Red: ${counts.red} | Green: ${counts.green}`, 15 + colOffset, cardY + 20);
+        pdf.text(`Orange: ${counts.orange} | White: ${counts.white}`, 15 + colOffset, cardY + 26);
+        pdf.text(`Conf: ${conf} | Non-Conf: ${nonConf}`, 15 + colOffset, cardY + 26 + 4); // Added category breakdown
 
-        yPos += (index % 2 === 0 ? cardHeight : 0) + 5; // Advance row
+        // Advance yPos for next row
+        if (index % 2 === 1) yPos += 40; // Row height + spacing
         addPageIfNeeded(cardHeight + 10);
       });
 
